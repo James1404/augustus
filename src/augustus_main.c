@@ -1,4 +1,5 @@
 #include "augustus_common.h"
+#include "augustus_physics.h"
 
 #include <raylib.h>
 #include <raymath.h>
@@ -8,30 +9,26 @@
 
 const int screenWidth = 800, screenHeight = 600;
 
-int main() {
+i32 main() {
     InitWindow(screenWidth, screenHeight, "hey window");
 
-    bool showMessageBox = false;
+    Physics_init();
 
     while(!WindowShouldClose()) {
-        BeginDrawing();
+        if(IsKeyDown(KEY_W)) {
+            printf("MOVE UP\n");
+        }
 
-        DrawText("hello, hello, hello", 10, 10, 80, BLACK);
+        BeginDrawing();
 
         ClearBackground(MAROON);
 
-        if (GuiButton((Rectangle){ 24, 24, 120, 30 }, "#191#Show Message")) showMessageBox = true;
-
-        if (showMessageBox)
-        {
-            int result = GuiMessageBox((Rectangle){ 85, 70, 250, 100 },
-                "#191#Message Box", "Hi! This is a message!", "Nice;Cool");
-
-            if (result >= 0) showMessageBox = false;
-        }
+        DrawText("hello, hello, hello", 10, 10, 80, BLACK);
 
         EndDrawing();
     }
+
+    Physics_free();
 
     CloseWindow();
 }

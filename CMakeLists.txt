@@ -30,9 +30,11 @@ target_include_directories(augustus PUBLIC
 )
 
 add_subdirectory(${augustus_CURRENT_DIR}/deps/raylib)
+add_subdirectory(${augustus_CURRENT_DIR}/deps/box2c)
 
 target_link_libraries(augustus PUBLIC
     raylib
+    box2d
 )
 
 add_custom_command(
