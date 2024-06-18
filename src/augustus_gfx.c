@@ -1,5 +1,6 @@
 #include "augustus_gfx.h"
 #include "augustus_hash_functions.h"
+
 #include <stdlib.h>
 
 static void AnimationMap_realloc(AnimationMap* map) {
@@ -77,7 +78,7 @@ bool AnimationMap_exists(AnimationMap* map, char* key) {
     return entry->hash == hash;
 }
 
-Sprite Sprite_make() {
+Sprite Sprite_make(void) {
     return (Sprite) {
         .animations = AnimationMap_make()
     };

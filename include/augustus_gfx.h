@@ -40,7 +40,7 @@ typedef struct {
     AnimationMap animations;
 } Sprite;
 
-Sprite Sprite_make();
+Sprite Sprite_make(void);
 void Sprite_free(Sprite* sprite);
 
 #endif//AUGUSTUS_GFX_H

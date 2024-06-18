@@ -15,6 +15,12 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 add_executable(augustus)
 
+if(MSVC)
+  target_compile_options(augustus PRIVATE /W4)
+else()
+  target_compile_options(augustus PRIVATE -Wall -Wpedantic)
+endif()
+
 set(augustus_CURRENT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 file(GLOB augustus_src

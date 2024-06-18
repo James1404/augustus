@@ -3,9 +3,14 @@
 
 #include "augustus_common.h"
 
-#include "box2d/box2d.h"
+#include "box2d/id.h"
 
-void Physics_init();
-void Physics_free();
+typedef struct {
+    f32 x, y;
+    b2BodyId body;
+} Rigidbody;
+
+void Physics_init(void);
+void Physics_free(void);
 
 #endif//AUGUSTUS_PHYSICS_H
