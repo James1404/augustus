@@ -2,6 +2,7 @@
 #include "augustus_physics.h"
 #include "augustus_player.h"
 #include "augustus_level.h"
+#include "augustus_string.h"
 
 #include <raylib.h>
 #include <raymath.h>
@@ -12,8 +13,10 @@
 const int screenWidth = 800, screenHeight = 600;
 
 i32 main(void) {
+    String window_name = STR("Hey, window");
+
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(screenWidth, screenHeight, "hey window");
+    InitWindow(screenWidth, screenHeight, window_name.raw);
 
     Physics_init();
 
@@ -28,6 +31,24 @@ i32 main(void) {
     while(!WindowShouldClose()) {
         if(IsKeyDown(KEY_W)) {
             printf("MOVE UP\n");
+        }
+
+        if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+            Vector2 delta = GetMouseDelta();
+            delta = Vector2Scale(delta, -1.0f/camera.zoom);
+            camera.target = Vector2Add(camera.target, delta);
+        }
+
+        f32 wheel = GetMouseWheelMove();
+        if(wheel != 0) {
+            Vector2 mouseWorldPosition = GetScreenToWorld2D(GetMousePosition(), camera);
+
+            camera.offset = GetMousePosition();
+            camera.target = mouseWorldPosition; 
+
+            float scaleFactor = 1.0f + (0.25f*fabsf(wheel));
+            if (wheel < 0) scaleFactor = 1.0f/scaleFactor;
+            camera.zoom = Clamp(camera.zoom*scaleFactor, 0.125f, 64.0f);
         }
 
         Player_update(&player);
