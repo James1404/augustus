@@ -141,9 +141,9 @@ static Level Level_read_V1(FILE* file) {
         fread(&room->w, sizeof(room->w), 1, file);
         fread(&room->h, sizeof(room->h), 1, file);
         room->foreground = malloc(room->w * room->h * sizeof(Tile));
-        fread(&room->foreground, sizeof(Tile), room->w * room->h, file);
+        fread(room->foreground, sizeof(Tile), room->w * room->h, file);
 
-        fread(&room->name, sizeof(room->name[0]), MAX_NAME_LEN, file);
+        fread(room->name, sizeof(room->name[0]), MAX_NAME_LEN, file);
     }
 
     return level;
@@ -160,8 +160,12 @@ Level Level_read_from_file(const char* filename) {
     fread(&version, sizeof(u32), 1, file);
 
     switch(version) {
-        case 1: result = Level_read_V1(file);
-        default: result = Level_make();
+        case 1:
+            result = Level_read_V1(file);
+            break;
+        default:
+            result = Level_make();
+            break;
     }
 
     fclose(file);
