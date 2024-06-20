@@ -62,4 +62,7 @@ void Level_free(Level* level);
 u32 Level_add_room(Level* level, u32 w, u32 h);
 Room* Level_get_room(Level level, u32 idx);
 
+void Level_write_to_file(Level* level, const char* filename);
+Level Level_read_from_file(const char* filename);
+
 #endif//AUGUSTUS_LEVEL_H

@@ -9,6 +9,8 @@
 
 #define TILE_SIZE 32
 
+static u32 level_format_version = 1;
+
 Vector2 Vector2_WorldToTile(Vector2 vector) {
     return (Vector2) {
         roundf(vector.x - 0.5f),
@@ -21,6 +23,8 @@ Room Room_make(u32 w, u32 h) {
         .w = w,
         .h = h,
         .foreground = calloc(w * h, sizeof(Tile)),
+        .doors = NULL,
+        .doors_len = 0,
         .name = "unkown name"
     };
 
@@ -68,7 +72,7 @@ void Room_resize(Room* room, u32 w, u32 h) {
     room->w = w;
     room->h = h;
 
-    Tile* temp = realloc(room->foreground, w * h* sizeof(Tile));
+    Tile* temp = realloc(room->foreground, w * h * sizeof(Tile));
     if(temp) {
         room->foreground = temp;
     }
@@ -91,6 +95,8 @@ u32 Level_add_room(Level* level, u32 w, u32 h) {
     }
 
     u32 idx = level->rooms_len++;
+
+    level->rooms = realloc(level->rooms, sizeof(Room) * level->rooms_len);
     level->rooms[idx] = Room_make(w, h);
 
     return idx;
@@ -102,3 +108,63 @@ Room* Level_get_room(Level level, u32 idx) {
     return level.rooms + idx;
 }
 
+void Level_write_to_file(Level* level, const char* filename) {
+    FILE* file;
+
+    file = fopen(filename, "wb");
+
+    fwrite(&level_format_version, sizeof(level_format_version), 1, file);
+
+    fwrite(&level->rooms_len, sizeof(level->rooms_len), 1, file);
+
+    for(u32 i = 0; i < level->rooms_len; i++) {
+        Room* room = level->rooms + i;
+        fwrite(&room->w, sizeof(room->w), 1, file);
+        fwrite(&room->h, sizeof(room->h), 1, file);
+
+        fwrite(room->foreground, sizeof(room->foreground[0]), room->w * room->h, file);
+
+        fwrite(room->name, sizeof(room->name[0]), MAX_NAME_LEN, file);
+    }
+
+    fclose(file);
+}
+
+static Level Level_read_V1(FILE* file) {
+    Level level;
+
+    fread(&level.rooms_len, sizeof(level.rooms_len), 1, file);
+    level.rooms = malloc(sizeof(Room) * level.rooms_len);
+
+    for(u32 i = 0; i < level.rooms_len; i++) {
+        Room* room = level.rooms + i;
+        fread(&room->w, sizeof(room->w), 1, file);
+        fread(&room->h, sizeof(room->h), 1, file);
+        room->foreground = malloc(room->w * room->h * sizeof(Tile));
+        fread(&room->foreground, sizeof(Tile), room->w * room->h, file);
+
+        fread(&room->name, sizeof(room->name[0]), MAX_NAME_LEN, file);
+    }
+
+    return level;
+}
+
+Level Level_read_from_file(const char* filename) {
+    FILE* file;
+
+    file = fopen(filename, "rb");
+
+    Level result;
+
+    u32 version = 0;
+    fread(&version, sizeof(u32), 1, file);
+
+    switch(version) {
+        case 1: result = Level_read_V1(file);
+        default: result = Level_make();
+    }
+
+    fclose(file);
+
+    return result;
+}

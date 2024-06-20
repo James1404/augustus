@@ -29,6 +29,13 @@ static i32 newRoomSizeH = 0;
 
 static u32 currentRoom = 0;
 
+typedef enum {
+    GAMESTATE_GAMEPLAY,
+    GAMESTATE_EDITOR
+} GameState;
+
+static GameState currentState = GAMESTATE_EDITOR;
+
 i32 main(void) {
     String window_name = STR("Hey, window");
 
@@ -48,10 +55,6 @@ i32 main(void) {
     Player player = Player_make();
 
     while(!WindowShouldClose()) {
-        if(IsKeyDown(KEY_W)) {
-            printf("MOVE UP\n");
-        }
-
         if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
             Vector2 delta = GetMouseDelta();
             delta = Vector2Scale(delta, -1.0f/camera.zoom);
@@ -70,8 +73,10 @@ i32 main(void) {
             camera.zoom = Clamp(camera.zoom*scaleFactor, MIN_ZOOM, MAX_ZOOM);
         }
 
-        Player_update(&player);
-        Physics_sim();
+        if(currentState == GAMESTATE_GAMEPLAY) {
+            Player_update(&player);
+            Physics_sim();
+        }
 
         BeginDrawing();
 
@@ -86,80 +91,111 @@ i32 main(void) {
         if(room) {
             Room_draw(*room);
 
-            DrawRectangleLinesEx(
-                (Rectangle) { 0, 0, room->w, room->h },
-                0.1f,
-                GREEN
-            );
+            if(currentState == GAMESTATE_EDITOR) {
+                DrawRectangleLinesEx(
+                    (Rectangle) { 0, 0, room->w, room->h },
+                    0.1f,
+                    GREEN
+                );
 
-            cursorPos = Vector2_WorldToTile(GetScreenToWorld2D(GetMousePosition(), camera));
+                cursorPos = Vector2_WorldToTile(GetScreenToWorld2D(GetMousePosition(), camera));
 
-            if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-                if( (cursorPos.x >= 0 && cursorPos.x <= room->w) &&
-                    (cursorPos.y >= 0 && cursorPos.y <= room->h)) {
-                    Tile* t = Room_get(room, cursorPos.x, cursorPos.y);
-                    t->type = currentTileType;
+                if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                    if( (cursorPos.x >= 0 && cursorPos.x <= room->w) &&
+                        (cursorPos.y >= 0 && cursorPos.y <= room->h)) {
+                        Tile* t = Room_get(room, cursorPos.x, cursorPos.y);
+                        t->type = currentTileType;
+                    }
                 }
             }
         }
 
+        if(currentState == GAMESTATE_EDITOR) {
+            DrawRectangleLinesEx(
+                (Rectangle) { cursorPos.x, cursorPos.y, 1, 1 },
+                0.1f,
+                RED
+            );
+        }
 
-        DrawRectangleLinesEx(
-            (Rectangle) { cursorPos.x, cursorPos.y, 1, 1 },
-            0.1f,
-            RED
-        );
+        if(IsKeyPressed(KEY_TAB)) {
+            switch(currentState) {
+                case GAMESTATE_GAMEPLAY:
+                    currentState = GAMESTATE_EDITOR;
+                    break;
+                case GAMESTATE_EDITOR:
+                    currentState = GAMESTATE_GAMEPLAY;
+                    break;
+                default: break;
+            }
+        }
 
         EndMode2D();
 
-        rlImGuiBegin();
+        if(currentState == GAMESTATE_EDITOR) {
+            rlImGuiBegin();
 
-        if(igBegin("Tile Brush Settings", NULL, 0)) {
-            igCombo_Str_arr("Type", &currentTileType, tileTypes, TILE_MAX, 100);
+            if(igBegin("Tile Brush Settings", NULL, 0)) {
+                igCombo_Str_arr("Type", &currentTileType, tileTypes, TILE_MAX, 100);
 
-            igEnd();
-        }
+                igEnd();
+            }
 
-        if(igBegin("Room Settings", NULL, 0)) {
-            if(room) {
-                igText("Current Room: '%lu'", currentRoom);
+            if(igBegin("Room Settings", NULL, 0)) {
+                if(room) {
+                    igText("Current Room: '%lu'", currentRoom);
 
-                igInputText("Room name", room->name, MAX_NAME_LEN, 0, NULL, NULL);
+                    igInputText("Room name", room->name, MAX_NAME_LEN, 0, NULL, NULL);
 
-                igDragInt("width", &newRoomSizeW, 1.0f, 1, UINT32_MAX, "%d", 0);
-                igDragInt("height", &newRoomSizeH, 1.0f, 1, UINT32_MAX, "%d", 0);
+                    igDragInt("width", &newRoomSizeW, 1.0f, 1, UINT32_MAX, "%d", 0);
+                    igDragInt("height", &newRoomSizeH, 1.0f, 1, UINT32_MAX, "%d", 0);
 
-                if(igButton("Update Size", (ImVec2) {0,0})) {
-                    Room_resize(room, newRoomSizeW, newRoomSizeH);
+                    if(igButton("Update Size", (ImVec2) {0,0})) {
+                        Room_resize(room, newRoomSizeW, newRoomSizeH);
+                    }
                 }
+
+                igEnd();
             }
 
-            igEnd();
-        }
+            if(igBegin("Level Settings", NULL, 0)) {
+                if(igButton("Save Level", (ImVec2) {0,0})) {
+                    Level_write_to_file(&level, "resources/levels/test0.bin");
+                }
 
-        if(igBegin("Room List", NULL, 0)) {
-            if(igButton("Make Room", (ImVec2) {0,0})) {
-                currentRoom = Level_add_room(&level, 10, 10);
-            }
+                if(igButton("Load Level", (ImVec2) {0,0})) {
+                    Level_free(&level);
+                    level = Level_read_from_file("resources/levels/test0.bin");
+                    currentRoom = 0;
+                    room = Level_get_room(level, currentRoom);
+                }
 
-            if(igBeginListBox("Rooms", (ImVec2){0,0})) {
-                for(u32 i = 0; i < level.rooms_len; i++) {
-                    igPushID_Int(i);
-                    bool selected = (currentRoom == i);
-                    if(igSelectable_Bool(level.rooms[i].name, selected, 0, (ImVec2){0,0})) {
-                        currentRoom = i;
+                igSeparator();
+
+                if(igButton("Make Room", (ImVec2) {0,0})) {
+                    currentRoom = Level_add_room(&level, 10, 10);
+                }
+
+                if(igBeginListBox("Rooms", (ImVec2){0,0})) {
+                    for(u32 i = 0; i < level.rooms_len; i++) {
+                        igPushID_Int(i);
+                        bool selected = (currentRoom == i);
+                        if(igSelectable_Bool(level.rooms[i].name, selected, 0, (ImVec2){0,0})) {
+                            currentRoom = i;
+                        }
+
+                        if (selected) igSetItemDefaultFocus();
+                        igPopID();
                     }
 
-                    if (selected) igSetItemDefaultFocus();
-                    igPopID();
+                    igEndListBox();
                 }
 
-                igEndListBox();
+                igEnd();
             }
-            igEnd();
-        }
 
-        rlImGuiEnd();
+            rlImGuiEnd();
+        }
 
         EndDrawing();
     }
