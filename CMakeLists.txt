@@ -27,20 +27,26 @@ file(GLOB augustus_src
 	${augustus_CURRENT_DIR}/src/*.cpp
 	${augustus_CURRENT_DIR}/src/*.c
 )
+	
+file(GLOB rlImGui_src
+    ${augustus_CURRENT_DIR}/deps/rlImGui/*.cpp
+)
 
-target_sources(augustus PRIVATE ${augustus_src})
+target_sources(augustus PRIVATE ${augustus_src} ${rlImGui_src})
 
 target_include_directories(augustus PUBLIC
     ${augustus_CURRENT_DIR}/include
-    ${augustus_CURRENT_DIR}/deps/raygui/src
+    ${augustus_CURRENT_DIR}/deps/rlImGui
 )
 
 add_subdirectory(${augustus_CURRENT_DIR}/deps/raylib)
 add_subdirectory(${augustus_CURRENT_DIR}/deps/box2c)
+add_subdirectory(${augustus_CURRENT_DIR}/deps/cimgui)
 
 target_link_libraries(augustus PUBLIC
     raylib
     box2d
+    cimgui
 )
 
 add_custom_command(

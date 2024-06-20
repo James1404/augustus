@@ -29,14 +29,14 @@ void Physics_sim(void) {
     }
 }
 
-Rigidbody Rigidbody_make(void) {
+Rigidbody Rigidbody_make(f32 w, f32 h) {
     b2BodyDef bodyDef = b2DefaultBodyDef();
     bodyDef.type = b2_dynamicBody;
     bodyDef.position = (b2Vec2) { 0, 0 };
 
     b2BodyId body = b2CreateBody(world, &bodyDef);
 
-    b2Polygon shape = b2MakeBox(1, 1);
+    b2Polygon shape = b2MakeBox(w / 2.0f, h / 2.0f);
 
     b2ShapeDef shapeDef = b2DefaultShapeDef();
     shapeDef.density = 1;
@@ -44,11 +44,16 @@ Rigidbody Rigidbody_make(void) {
 
     b2CreatePolygonShape(body, &shapeDef, &shape);
 
-    return (Rigidbody) { body };
+    return (Rigidbody) { body, w, h };
 }
 
 void Rigidbody_free(Rigidbody rb) {
     b2DestroyBody(rb.body);
+}
+
+void Rigidbody_draw(Rigidbody rb) {
+    b2Vec2 pos = Rigidbody_pos(rb);
+    DrawRectangle(pos.x, pos.y, rb.w, rb.h, DARKPURPLE);
 }
 
 b2Vec2 Rigidbody_pos(Rigidbody rb) {

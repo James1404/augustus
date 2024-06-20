@@ -12,10 +12,13 @@ void Physics_sim(void);
 
 typedef struct {
     b2BodyId body;
+    f32 w, h;
 } Rigidbody;
 
-Rigidbody Rigidbody_make(void);
+Rigidbody Rigidbody_make(f32 w, f32 h);
 void Rigidbody_free(Rigidbody rb);
+
+void Rigidbody_draw(Rigidbody rb);
 
 b2Vec2 Rigidbody_pos(Rigidbody rb);
 f32 Rigidbody_rotation(Rigidbody rb);
