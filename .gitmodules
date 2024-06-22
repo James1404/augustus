@@ -1,15 +1,6 @@
 [submodule "deps/raylib"]
 	path = deps/raylib
 	url = git@github.com:raysan5/raylib.git
-[submodule "deps/raygui"]
-	path = deps/raygui
-	url = git@github.com:raysan5/raygui.git
 [submodule "deps/box2c"]
 	path = deps/box2c
 	url = git@github.com:erincatto/box2c.git
-[submodule "deps/rlImGui"]
-	path = deps/rlImGui
-	url = git@github.com:raylib-extras/rlImGui.git
-[submodule "deps/cimgui"]
-	path = deps/cimgui
-	url = git@github.com:cimgui/cimgui.git
