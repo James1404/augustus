@@ -13,6 +13,7 @@ typedef struct {
     Vector2 pos;
     f32 height;
     u32 state;
+    bool has_collision;
 } Player;
 
 Player Player_make(void);

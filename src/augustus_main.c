@@ -58,27 +58,29 @@ i32 main(void) {
     Camera2D camera = { 0 };
     camera.zoom = 20;
 
-    Level level = Level_make();
+    level = Level_make();
 
     Player player = Player_make();
 
     while(!WindowShouldClose()) {
-        if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
-            Vector2 delta = GetMouseDelta();
-            delta = Vector2Scale(delta, -1.0f/camera.zoom);
-            camera.target = Vector2Add(camera.target, delta);
-        }
+        if(!io->WantCaptureMouse) {
+            if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+                Vector2 delta = GetMouseDelta();
+                delta = Vector2Scale(delta, -1.0f/camera.zoom);
+                camera.target = Vector2Add(camera.target, delta);
+            }
 
-        f32 wheel = GetMouseWheelMove();
-        if(wheel != 0) {
-            Vector2 mouseWorldPosition = GetScreenToWorld2D(GetMousePosition(), camera);
+            f32 wheel = GetMouseWheelMove();
+            if(wheel != 0) {
+                Vector2 mouseWorldPosition = GetScreenToWorld2D(GetMousePosition(), camera);
 
-            camera.offset = GetMousePosition();
-            camera.target = mouseWorldPosition; 
+                camera.offset = GetMousePosition();
+                camera.target = mouseWorldPosition; 
 
-            float scaleFactor = 1.0f + (0.25f*fabsf(wheel));
-            if (wheel < 0) scaleFactor = 1.0f/scaleFactor;
-            camera.zoom = Clamp(camera.zoom*scaleFactor, MIN_ZOOM, MAX_ZOOM);
+                float scaleFactor = 1.0f + (0.25f*fabsf(wheel));
+                if (wheel < 0) scaleFactor = 1.0f/scaleFactor;
+                camera.zoom = Clamp(camera.zoom*scaleFactor, MIN_ZOOM, MAX_ZOOM);
+            }
         }
 
         if(currentState == GAMESTATE_GAMEPLAY) {
@@ -97,7 +99,7 @@ i32 main(void) {
         Level_draw(level);
         Segment_draw(&currentDrawSegment, RED);
 
-        if(IsKeyPressed(KEY_TAB)) {
+        if(IsKeyPressed(KEY_TAB) && !io->WantCaptureKeyboard) {
             switch(currentState) {
                 case GAMESTATE_GAMEPLAY:
                     currentState = GAMESTATE_EDITOR;

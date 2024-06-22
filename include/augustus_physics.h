@@ -24,4 +24,6 @@ void Rigidbody_draw(Rigidbody rb);
 b2Vec2 Rigidbody_pos(Rigidbody rb);
 f32 Rigidbody_rotation(Rigidbody rb);
 
+void SAT_projection(Vector2 vertices[], u32 vertices_len, Vector2 axis, f32* min, f32* max);
+
 #endif//AUGUSTUS_PHYSICS_H

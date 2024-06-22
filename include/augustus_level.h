@@ -8,7 +8,6 @@
 typedef struct {
     Vector2* vertices;
     u64 len;
-    bool wrap;
 } Segment;
 
 Segment Segment_make(void);
@@ -39,6 +38,8 @@ typedef struct {
     Door* doors;
     u32 doors_len;
 } Level;
+
+extern Level level;
 
 Level Level_make(void);
 void Level_free(Level* level);

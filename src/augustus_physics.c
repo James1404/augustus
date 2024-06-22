@@ -65,3 +65,14 @@ b2Vec2 Rigidbody_pos(Rigidbody rb) {
 f32 Rigidbody_rotation(Rigidbody rb) {
     return b2Body_GetAngle(rb.body);
 }
+
+void SAT_projection(Vector2 vertices[], u32 vertices_len, Vector2 axis, f32* min, f32* max) {
+    *min = Vector2DotProduct(vertices[0], axis);
+    *max = *min;
+    
+    for(u32 i = 1; i < vertices_len; i++) {
+        f32 projection = Vector2DotProduct(vertices[i], axis);
+        *min = fmin(*min, projection);
+        *max = fmax(*max, projection);
+    }
+}
