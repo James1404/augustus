@@ -5,25 +5,17 @@
 
 #include <raylib.h>
 
-Vector2 Vector2_WorldToTile(Vector2 vector);
-
-#define FOR_TILES(DO)\
-    DO(TILE_NONE)\
-    DO(TILE_SOLID)\
-    DO(TILE_SLOPE)\
-    DO(TILE_SPIKE)\
-
-typedef enum {
-#define TILES_ENUM(x) x,
-    FOR_TILES(TILES_ENUM)
-
-    TILE_MAX,
-} TileType;
-
 typedef struct {
-    u8 type;
-    Color color;
-} Tile;
+    Vector2* vertices;
+    u64 len;
+    bool wrap;
+} Segment;
+
+Segment Segment_make(void);
+void Segment_free(Segment* segment);
+
+void Segment_add_vertex(Segment* segment, Vector2 pos);
+void Segment_draw(Segment* segment, Color color);
 
 typedef struct {
     u32 to;
@@ -31,38 +23,31 @@ typedef struct {
     i32 x, y;
 } Door;
 
-#define MAX_NAME_LEN 24
 typedef struct {
-    u32 w, h;
-    Tile* foreground;
+    Image image;
+
+    Vector2 pos, scl;
+    f32 rot;
+} Splat;
+
+#define LEVEL_NAME_LEN 24
+
+typedef struct {
+    Segment* segments;
+    u64 segments_len;
 
     Door* doors;
     u32 doors_len;
-
-    char name[MAX_NAME_LEN];
-} Room;
-
-Room Room_make(u32 w, u32 h);
-void Room_free(Room level);
-
-void Room_draw(Room room);
-
-Tile* Room_get(Room* room, i32 x, i32 y);
-
-void Room_resize(Room* room, u32 w, u32 h);
-
-typedef struct {
-    Room* rooms;
-    u32 rooms_len;
 } Level;
 
 Level Level_make(void);
 void Level_free(Level* level);
 
-u32 Level_add_room(Level* level, u32 w, u32 h);
-Room* Level_get_room(Level level, u32 idx);
+void Level_draw(Level level);
+
+void Level_new_segment(Level* level, Segment segment);
 
 void Level_write_to_file(Level* level, const char* filename);
-Level Level_read_from_file(const char* filename);
+bool Level_read_from_file(Level* level, const char* filename);
 
 #endif//AUGUSTUS_LEVEL_H

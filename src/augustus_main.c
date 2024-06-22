@@ -17,24 +17,31 @@
 #define MIN_ZOOM 0.125f
 #define MAX_ZOOM 100.0f
 
-static const int screenWidth = 800, screenHeight = 600;
-
-static i32 currentTileType = TILE_NONE;
-static Vector2 cursorPos;
-#define TILE_STRING(x) #x,
-static const char* tileTypes[] = { FOR_TILES(TILE_STRING) };
-
-static i32 newRoomSizeW = 0;
-static i32 newRoomSizeH = 0;
-
-static u32 currentRoom = 0;
+static const int screenWidth = 1280, screenHeight = 720;
 
 typedef enum {
     GAMESTATE_GAMEPLAY,
     GAMESTATE_EDITOR
 } GameState;
 
+
+#define FOR_EDITORTOOLS(DO)\
+    DO(EDITORTOOL_NONE)\
+    DO(EDITORTOOL_DRAW)\
+    DO(EDITORTOOL_SELECT)\
+
+typedef enum {
+#define ENUM(x) x,
+    FOR_EDITORTOOLS(ENUM)
+#undef ENUM
+} EditorTool;
+
 static GameState currentState = GAMESTATE_EDITOR;
+static EditorTool currentTool = EDITORTOOL_NONE;
+static char currentLevelName[LEVEL_NAME_LEN] = "";
+
+static Segment currentDrawSegment = {0};
+
 
 i32 main(void) {
     String window_name = STR("Hey, window");
@@ -44,13 +51,14 @@ i32 main(void) {
 
     rlImGuiSetup(true);
 
+    ImGuiIO* io = igGetIO();
+
     Physics_init();
 
     Camera2D camera = { 0 };
     camera.zoom = 20;
 
     Level level = Level_make();
-    currentRoom = Level_add_room(&level, 30, 20);
 
     Player player = Player_make();
 
@@ -86,37 +94,8 @@ i32 main(void) {
 
         Player_draw(&player);
 
-        Room* room = Level_get_room(level, currentRoom);
-
-        if(room) {
-            Room_draw(*room);
-
-            if(currentState == GAMESTATE_EDITOR) {
-                DrawRectangleLinesEx(
-                    (Rectangle) { 0, 0, room->w, room->h },
-                    0.1f,
-                    GREEN
-                );
-
-                cursorPos = Vector2_WorldToTile(GetScreenToWorld2D(GetMousePosition(), camera));
-
-                if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-                    if( (cursorPos.x >= 0 && cursorPos.x <= room->w) &&
-                        (cursorPos.y >= 0 && cursorPos.y <= room->h)) {
-                        Tile* t = Room_get(room, cursorPos.x, cursorPos.y);
-                        t->type = currentTileType;
-                    }
-                }
-            }
-        }
-
-        if(currentState == GAMESTATE_EDITOR) {
-            DrawRectangleLinesEx(
-                (Rectangle) { cursorPos.x, cursorPos.y, 1, 1 },
-                0.1f,
-                RED
-            );
-        }
+        Level_draw(level);
+        Segment_draw(&currentDrawSegment, RED);
 
         if(IsKeyPressed(KEY_TAB)) {
             switch(currentState) {
@@ -135,64 +114,55 @@ i32 main(void) {
         if(currentState == GAMESTATE_EDITOR) {
             rlImGuiBegin();
 
-            if(igBegin("Tile Brush Settings", NULL, 0)) {
-                igCombo_Str_arr("Type", &currentTileType, tileTypes, TILE_MAX, 100);
+            if(igBegin("Settings", NULL, 0)) {
+                igInputText("##Level Name", currentLevelName, LEVEL_NAME_LEN, 0, NULL, NULL);
 
-                igEnd();
-            }
+                igSameLine(0, -1);
 
-            if(igBegin("Room Settings", NULL, 0)) {
-                if(room) {
-                    igText("Current Room: '%lu'", currentRoom);
+                if(igButton("Save", (ImVec2) {0,0})) {
+                    Level_write_to_file(&level, TextFormat("resources/levels/%s.bin", currentLevelName));
+                }
 
-                    igInputText("Room name", room->name, MAX_NAME_LEN, 0, NULL, NULL);
+                igSameLine(0, -1);
 
-                    igDragInt("width", &newRoomSizeW, 1.0f, 1, UINT32_MAX, "%d", 0);
-                    igDragInt("height", &newRoomSizeH, 1.0f, 1, UINT32_MAX, "%d", 0);
-
-                    if(igButton("Update Size", (ImVec2) {0,0})) {
-                        Room_resize(room, newRoomSizeW, newRoomSizeH);
+                if(igButton("Load", (ImVec2) {0,0})) {
+                    if(!Level_read_from_file(&level, TextFormat("resources/levels/%s.bin", currentLevelName))) {
+                        printf("Failed to load level from '%s.bin'", currentLevelName);
                     }
-                }
-
-                igEnd();
-            }
-
-            if(igBegin("Level Settings", NULL, 0)) {
-                if(igButton("Save Level", (ImVec2) {0,0})) {
-                    Level_write_to_file(&level, "resources/levels/test0.bin");
-                }
-
-                if(igButton("Load Level", (ImVec2) {0,0})) {
-                    Level_free(&level);
-                    level = Level_read_from_file("resources/levels/test0.bin");
-                    currentRoom = 0;
-                    room = Level_get_room(level, currentRoom);
                 }
 
                 igSeparator();
+                        
+#define BUTTON(x) if(igButton(#x, (ImVec2) {0,0})) currentTool = x;
+                FOR_EDITORTOOLS(BUTTON)
+#undef BUTTON
 
-                if(igButton("Make Room", (ImVec2) {0,0})) {
-                    currentRoom = Level_add_room(&level, 10, 10);
-                }
+                igSeparator();
 
-                if(igBeginListBox("Rooms", (ImVec2){0,0})) {
-                    for(u32 i = 0; i < level.rooms_len; i++) {
-                        igPushID_Int(i);
-                        bool selected = (currentRoom == i);
-                        if(igSelectable_Bool(level.rooms[i].name, selected, 0, (ImVec2){0,0})) {
-                            currentRoom = i;
+                switch(currentTool) {
+                    case EDITORTOOL_NONE: {} break;
+                    case EDITORTOOL_DRAW: {
+                        if(igButton("Confirm", (ImVec2) {0,0})) {
+                            Level_new_segment(&level, currentDrawSegment);
+                            currentDrawSegment = (Segment) {0};
                         }
 
-                        if (selected) igSetItemDefaultFocus();
-                        igPopID();
-                    }
+                        if(igButton("Cancel", (ImVec2) {0,0})) {
+                            currentDrawSegment = (Segment) {0};
+                        }
 
-                    igEndListBox();
+                        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !io->WantCaptureMouse) {
+                            Vector2 pos = GetScreenToWorld2D(GetMousePosition(), camera);
+
+                            Segment_add_vertex(&currentDrawSegment, pos);
+                        }
+                    } break;
+                    case EDITORTOOL_SELECT: {} break;
                 }
 
                 igEnd();
             }
+
 
             rlImGuiEnd();
         }
@@ -209,4 +179,3 @@ i32 main(void) {
     rlImGuiShutdown();
     CloseWindow();
 }
-

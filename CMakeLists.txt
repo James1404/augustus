@@ -27,7 +27,7 @@ file(GLOB augustus_src
 	${augustus_CURRENT_DIR}/src/*.cpp
 	${augustus_CURRENT_DIR}/src/*.c
 )
-	
+
 file(GLOB rlImGui_src
     ${augustus_CURRENT_DIR}/deps/rlImGui/*.cpp
 )

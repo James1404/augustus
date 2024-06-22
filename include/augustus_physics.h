@@ -5,6 +5,7 @@
 
 #include "box2d/id.h"
 #include "box2d/math_functions.h"
+#include "raylib.h"
 
 void Physics_init(void);
 void Physics_free(void);

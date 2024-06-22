@@ -5,107 +5,76 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <math.h>
 
-#define TILE_SIZE 32
+static u32 format_version = 1;
 
-static u32 level_format_version = 1;
-
-Vector2 Vector2_WorldToTile(Vector2 vector) {
-    return (Vector2) {
-        roundf(vector.x - 0.5f),
-        roundf(vector.y - 0.5f),
+Segment Segment_make(void) {
+    return (Segment) {
+        .vertices = NULL,
+        .len = 0,
     };
 }
 
-Room Room_make(u32 w, u32 h) {
-    Room r = {
-        .w = w,
-        .h = h,
-        .foreground = calloc(w * h, sizeof(Tile)),
-        .doors = NULL,
-        .doors_len = 0,
-        .name = "unkown name"
-    };
+void Segment_free(Segment* segment) {
+    if(segment->vertices) free(segment->vertices);
+    *segment = Segment_make();
+}
 
-    srand(time(NULL));
-    for(u32 i = 0; i < w * h; i++) {
-        r.foreground[i].color = WHITE;
-        r.foreground[i].type = rand() % 2 ? TILE_SOLID : TILE_NONE;
+void Segment_add_vertex(Segment* segment, Vector2 pos) {
+    u32 idx = segment->len;
+    segment->len++;
+
+    segment->vertices = realloc(segment->vertices, sizeof(segment->vertices[0]) * segment->len);
+
+    segment->vertices[idx] = pos;
+}
+
+void Segment_draw(Segment* segment, Color color) {
+    for(u32 j = 0; j < segment->len; j++) {
+        DrawCircleV(segment->vertices[j], 0.5, color);
     }
 
-    printf("\n");
-
-    return r;
-}
-
-void Room_free(Room room) {
-    free(room.foreground);
-}
-
-void Room_draw(Room room) {
-    for(u32 i = 0; i < room.w; i++) {
-        for(u32 j = 0; j < room.h; j++) {
-            Tile tile = room.foreground[i + j * room.w];
-
-            switch(tile.type) {
-                case TILE_SOLID: {
-                    DrawRectangle(
-                        i, j,
-                        1, 1,
-                        tile.color
-                    );
-                    break;
-                }
-                default: break;
-            }
-
+    if(segment->len >= 2) {
+        for(u32 j = 0; j < segment->len - 1; j++) {
+            DrawLineV(segment->vertices[j], segment->vertices[j + 1], color);
         }
-    }
-}
-
-Tile* Room_get(Room* room, i32 x, i32 y) {
-    return &room->foreground[x + y * room->w];
-}
-
-void Room_resize(Room* room, u32 w, u32 h) {
-    room->w = w;
-    room->h = h;
-
-    Tile* temp = realloc(room->foreground, w * h * sizeof(Tile));
-    if(temp) {
-        room->foreground = temp;
     }
 }
 
 Level Level_make(void) {
     return (Level) {
-        .rooms = NULL,
-        .rooms_len = 0,
+        .segments = NULL,
+        .segments_len = 0,
+        .doors = NULL,
+        .doors_len = 0,
     };
 }
+
 void Level_free(Level* level) {
-    if(level->rooms) free(level->rooms);
+    for(u32 i = 0; i < level->segments_len; i++) {
+        Segment* segment = level->segments + i;
+        Segment_free(segment);
+    }
+
+    if(level->segments) free(level->segments); if(level->doors) free(level->doors);
+
     *level = Level_make();
 }
 
-u32 Level_add_room(Level* level, u32 w, u32 h) {
-    if(!level->rooms) {
-        level->rooms = malloc(sizeof(Room));
+void Level_draw(Level level) {
+    for(u32 i = 0; i < level.segments_len; i++) {
+        Segment* seg = level.segments + i;
+        Segment_draw(seg, GREEN);
     }
-
-    u32 idx = level->rooms_len++;
-
-    level->rooms = realloc(level->rooms, sizeof(Room) * level->rooms_len);
-    level->rooms[idx] = Room_make(w, h);
-
-    return idx;
 }
 
-Room* Level_get_room(Level level, u32 idx) {
-    if(idx > level.rooms_len) return NULL;
+void Level_new_segment(Level* level, Segment segment) {
+    u32 idx = level->segments_len;
+    level->segments_len++;
 
-    return level.rooms + idx;
+    level->segments = realloc(level->segments, sizeof(level->segments[0]) * level->segments_len);
+
+    level->segments[idx] = segment;
 }
 
 void Level_write_to_file(Level* level, const char* filename) {
@@ -113,62 +82,61 @@ void Level_write_to_file(Level* level, const char* filename) {
 
     file = fopen(filename, "wb");
 
-    fwrite(&level_format_version, sizeof(level_format_version), 1, file);
+    fwrite(&format_version, sizeof(format_version), 1, file);
 
-    fwrite(&level->rooms_len, sizeof(level->rooms_len), 1, file);
+    fwrite(&level->segments_len, sizeof(level->segments_len), 1, file);
 
-    for(u32 i = 0; i < level->rooms_len; i++) {
-        Room* room = level->rooms + i;
-        fwrite(&room->w, sizeof(room->w), 1, file);
-        fwrite(&room->h, sizeof(room->h), 1, file);
-
-        fwrite(room->foreground, sizeof(room->foreground[0]), room->w * room->h, file);
-
-        fwrite(room->name, sizeof(room->name[0]), MAX_NAME_LEN, file);
+    for(u32 i = 0; i < level->segments_len; i++) {
+        Segment* segment = level->segments + i;
+        fwrite(&segment->len, sizeof(segment->len), 1, file);
+        fwrite(&segment->wrap, sizeof(segment->wrap), 1, file);
+        fwrite(segment->vertices, sizeof(segment->vertices[0]), segment->len, file);
     }
 
     fclose(file);
 }
 
-static Level Level_read_V1(FILE* file) {
-    Level level;
+static bool Level_read_V1(Level* level, FILE* file) {
+    fread(&level->segments_len, sizeof(level->segments_len), 1, file);
+    level->segments = malloc(sizeof(Segment) * level->segments_len);
 
-    fread(&level.rooms_len, sizeof(level.rooms_len), 1, file);
-    level.rooms = malloc(sizeof(Room) * level.rooms_len);
-
-    for(u32 i = 0; i < level.rooms_len; i++) {
-        Room* room = level.rooms + i;
-        fread(&room->w, sizeof(room->w), 1, file);
-        fread(&room->h, sizeof(room->h), 1, file);
-        room->foreground = malloc(room->w * room->h * sizeof(Tile));
-        fread(room->foreground, sizeof(Tile), room->w * room->h, file);
-
-        fread(room->name, sizeof(room->name[0]), MAX_NAME_LEN, file);
+    for(u32 i = 0; i < level->segments_len; i++) {
+        Segment* segment = level->segments + i;
+        fread(&segment->len, sizeof(segment->len), 1, file);
+        fread(&segment->wrap, sizeof(segment->wrap), 1, file);
+        segment->vertices = malloc(sizeof(segment->vertices[0])*segment->len);
+        fread(segment->vertices, sizeof(segment->vertices[0]), segment->len, file);
     }
 
-    return level;
+    return true;
 }
 
-Level Level_read_from_file(const char* filename) {
+bool Level_read_from_file(Level* level, const char* filename) {
     FILE* file;
 
     file = fopen(filename, "rb");
 
-    Level result;
+    bool success = false;
 
-    u32 version = 0;
-    fread(&version, sizeof(u32), 1, file);
+    if(file) {
+        Level_free(level);
 
-    switch(version) {
-        case 1:
-            result = Level_read_V1(file);
-            break;
-        default:
-            result = Level_make();
-            break;
+        u32 version = 0;
+        fread(&version, sizeof(u32), 1, file);
+
+        switch(version) {
+            case 1:
+                Level_read_V1(level, file);
+                break;
+            default:
+                *level = Level_make();
+                break;
+        }
+
+        success = true;
     }
 
     fclose(file);
 
-    return result;
+    return success;
 }

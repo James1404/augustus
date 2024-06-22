@@ -2,7 +2,9 @@
 
 #include "box2d/box2d.h"
 #include "box2d/collision.h"
-#include "raylib.h"
+#include "raymath.h"
+
+#include <math.h>
 
 static b2WorldId world;
 
