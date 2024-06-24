@@ -76,3 +76,38 @@ void SAT_projection(Vector2 vertices[], u32 vertices_len, Vector2 axis, f32* min
         *max = fmax(*max, projection);
     }
 }
+
+f32 Signed2DTriArea(Vector2 a, Vector2 b, Vector2 c) {
+    return (a.x - c.x) * (b.y - c.y) - (a.y - c.y) * (b.x - c.x);
+}
+
+bool LineVsLine(Vector2 a, Vector2 b, Vector2 c, Vector2 d, f32* t, Vector2* p) {
+    f32 a1 = Signed2DTriArea(a, b, d);
+    f32 a2 = Signed2DTriArea(a, b, c);
+
+    if(a1 * a2 < 0.0f) {
+        f32 a3 = Signed2DTriArea(c, d, a);
+        f32 a4 = a3 + a2 - a1;
+
+        if(a3 * a4 < 0.0f) {
+
+            *t = a3 / (a3 - a4);
+            *p = Vector2Multiply(Vector2AddValue(a, *t), Vector2Subtract(b, a));
+            return true;
+        }
+    }
+
+    return false;
+}
+
+Vector2 ClosestPointToLine(Vector2 a, Vector2 b, Vector2 point) {
+    Vector2 ab = Vector2Subtract(b, a);
+
+    f32 t = Vector2DotProduct(Vector2Subtract(point, a), ab);
+    t /= Vector2DotProduct(ab, ab);
+
+    if(t < 0.0f) t = 0.0f;
+    if(t > 1.0f) t = 1.0f;
+
+    return Vector2Add(a, Vector2Scale(ab, t));
+}

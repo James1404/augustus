@@ -4,10 +4,12 @@
 #include "augustus_level.h"
 #include "augustus_string.h"
 
+#include <math.h>
 #include <raylib.h>
 #include <raymath.h>
 
 #include <stdio.h>
+#include <string.h>
 
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include <cimgui.h>
@@ -24,24 +26,30 @@ typedef enum {
     GAMESTATE_EDITOR
 } GameState;
 
-
 #define FOR_EDITORTOOLS(DO)\
-    DO(EDITORTOOL_NONE)\
-    DO(EDITORTOOL_DRAW)\
-    DO(EDITORTOOL_SELECT)\
+    DO(None)\
+    DO(Draw)\
+    DO(Edit_vertices)\
+    DO(Add_vertex)\
+    DO(Add_splat)\
+    DO(Edit_splats)\
+    DO(New_enemies)\
+    DO(Edit_enemies)\
 
 typedef enum {
-#define ENUM(x) x,
+#define ENUM(x) EDITORTOOL_##x,
     FOR_EDITORTOOLS(ENUM)
 #undef ENUM
 } EditorTool;
 
-static GameState currentState = GAMESTATE_EDITOR;
-static EditorTool currentTool = EDITORTOOL_NONE;
-static char currentLevelName[LEVEL_NAME_LEN] = "";
+static GameState state = GAMESTATE_EDITOR;
+static EditorTool tool = EDITORTOOL_None;
+static char levelName[LEVEL_NAME_LEN] = "";
 
-static Segment currentDrawSegment = {0};
+static Segment drawSegment = {0};
 
+static bool selectedVertex = false;
+static u64 editVertexSegment, editVertex;
 
 i32 main(void) {
     String window_name = STR("Hey, window");
@@ -63,6 +71,8 @@ i32 main(void) {
     Player player = Player_make();
 
     while(!WindowShouldClose()) {
+        Vector2 mouseWorldPosition = GetScreenToWorld2D(GetMousePosition(), camera);
+
         if(!io->WantCaptureMouse) {
             if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
                 Vector2 delta = GetMouseDelta();
@@ -72,8 +82,6 @@ i32 main(void) {
 
             f32 wheel = GetMouseWheelMove();
             if(wheel != 0) {
-                Vector2 mouseWorldPosition = GetScreenToWorld2D(GetMousePosition(), camera);
-
                 camera.offset = GetMousePosition();
                 camera.target = mouseWorldPosition; 
 
@@ -83,9 +91,15 @@ i32 main(void) {
             }
         }
 
-        if(currentState == GAMESTATE_GAMEPLAY) {
-            Player_update(&player);
-            Physics_sim();
+        switch(state) {
+            case GAMESTATE_GAMEPLAY: {
+                Player_update(&player);
+                Physics_sim();
+            } break;
+            case GAMESTATE_EDITOR: {
+                if(tool == EDITORTOOL_Edit_vertices) {
+                }
+            } break;
         }
 
         BeginDrawing();
@@ -97,15 +111,15 @@ i32 main(void) {
         Player_draw(&player);
 
         Level_draw(level);
-        Segment_draw(&currentDrawSegment, RED);
+        Segment_draw(&drawSegment, RED);
 
         if(IsKeyPressed(KEY_TAB) && !io->WantCaptureKeyboard) {
-            switch(currentState) {
+            switch(state) {
                 case GAMESTATE_GAMEPLAY:
-                    currentState = GAMESTATE_EDITOR;
+                    state = GAMESTATE_EDITOR;
                     break;
                 case GAMESTATE_EDITOR:
-                    currentState = GAMESTATE_GAMEPLAY;
+                    state = GAMESTATE_GAMEPLAY;
                     break;
                 default: break;
             }
@@ -113,53 +127,131 @@ i32 main(void) {
 
         EndMode2D();
 
-        if(currentState == GAMESTATE_EDITOR) {
+        if(state == GAMESTATE_EDITOR) {
             rlImGuiBegin();
 
             if(igBegin("Settings", NULL, 0)) {
-                igInputText("##Level Name", currentLevelName, LEVEL_NAME_LEN, 0, NULL, NULL);
+                igInputText("##Level Name", levelName, LEVEL_NAME_LEN, 0, NULL, NULL);
 
                 igSameLine(0, -1);
 
                 if(igButton("Save", (ImVec2) {0,0})) {
-                    Level_write_to_file(&level, TextFormat("resources/levels/%s.bin", currentLevelName));
+                    Level_write_to_file(&level, TextFormat("resources/levels/%s.bin", levelName));
                 }
 
                 igSameLine(0, -1);
 
                 if(igButton("Load", (ImVec2) {0,0})) {
-                    if(!Level_read_from_file(&level, TextFormat("resources/levels/%s.bin", currentLevelName))) {
-                        printf("Failed to load level from '%s.bin'", currentLevelName);
+                    if(!Level_read_from_file(&level, TextFormat("resources/levels/%s.bin", levelName))) {
+                        printf("Failed to load level from '%s.bin'", levelName);
                     }
                 }
 
                 igSeparator();
                         
-#define BUTTON(x) if(igButton(#x, (ImVec2) {0,0})) currentTool = x;
+#define BUTTON(x) if(igButton(#x, (ImVec2) {0,0})) tool = EDITORTOOL_##x;
                 FOR_EDITORTOOLS(BUTTON)
 #undef BUTTON
 
                 igSeparator();
 
-                switch(currentTool) {
-                    case EDITORTOOL_NONE: {} break;
-                    case EDITORTOOL_DRAW: {
+                switch(tool) {
+                    case EDITORTOOL_None: {} break;
+                    case EDITORTOOL_Draw: {
                         if(igButton("Confirm", (ImVec2) {0,0})) {
-                            Level_new_segment(&level, currentDrawSegment);
-                            currentDrawSegment = (Segment) {0};
+                            Level_new_segment(&level, drawSegment);
+                            drawSegment = (Segment) {0};
                         }
 
                         if(igButton("Cancel", (ImVec2) {0,0})) {
-                            currentDrawSegment = (Segment) {0};
+                            Segment_free(&drawSegment);
+                            tool = EDITORTOOL_None;
                         }
 
                         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !io->WantCaptureMouse) {
-                            Vector2 pos = GetScreenToWorld2D(GetMousePosition(), camera);
-
-                            Segment_add_vertex(&currentDrawSegment, pos);
+                            Segment_add_vertex(&drawSegment, mouseWorldPosition);
                         }
                     } break;
-                    case EDITORTOOL_SELECT: {} break;
+                    case EDITORTOOL_Edit_vertices: {
+                        if(selectedVertex) {
+                            Vector2* vertex = level.segments[editVertexSegment].vertices + editVertex;
+
+                            *vertex = mouseWorldPosition;
+
+                            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !io->WantCaptureMouse) {
+                                selectedVertex = false;
+                            }
+                        }
+                        else {
+                            for(u32 i = 0; i < level.segments_len; i++) {
+                                Segment* segment = level.segments + i;
+
+                                for(u32 j = 0; j < segment->len; j++) {
+                                    Vector2 vertex = segment->vertices[j];
+                                    Vector2 vertexScreen = GetWorldToScreen2D(vertex, camera);
+
+                                    static const f32 radius = 5.0f;
+                                    
+                                    DrawCircleV(vertexScreen, radius, BLUE);
+
+                                    if(Vector2Distance(GetMousePosition(), vertexScreen) < radius) {
+                                        DrawCircleV(vertexScreen, radius * 5, RED);
+
+                                        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !io->WantCaptureMouse) {
+                                            selectedVertex = true;
+                                            editVertexSegment = i;
+                                            editVertex = j;
+                                        }
+                                        else if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !io->WantCaptureMouse) {
+                                            Segment_delete_vertex(segment, j);
+
+                                            if(segment->len <= 1) {
+                                                Level_remove_segment(&level, i);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } break;
+                    case EDITORTOOL_Add_vertex: {
+                        Vector2 closest = {0};
+                        f32 dist = INFINITY;
+                        u64 segment_idx = 0;
+                        u64 vertex_idx = 0;
+
+                        for(u32 i = 0; i < level.segments_len; i++) {
+                            Segment* segment = level.segments + i;
+
+                            for(u32 j = 0; (j < segment->len && segment->wrap) || j < segment->len - 1; j++) {
+                                Vector2 a = segment->vertices[j];
+                                Vector2 b = segment->vertices[(j + 1) % segment->len];
+
+                                Vector2 p = ClosestPointToLine(a, b, mouseWorldPosition);
+                                f32 d = Vector2Distance(mouseWorldPosition, p);
+
+                                if(d < dist) {
+                                    dist = d;
+                                    closest = p;
+                                    segment_idx = i;
+                                    vertex_idx = j + 1;
+                                }
+                            }
+                        }
+
+                        DrawCircleV(GetWorldToScreen2D(closest, camera), 5, BLUE);
+
+                        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                            Segment_insert(&level.segments[segment_idx], closest, vertex_idx);
+
+                            tool = EDITORTOOL_Edit_vertices;
+                            selectedVertex = true;
+                            editVertexSegment = segment_idx;
+                            editVertex = vertex_idx;
+                        }
+                    } break;
+                    default: {} break;
                 }
 
                 igEnd();

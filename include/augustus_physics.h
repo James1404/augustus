@@ -26,4 +26,10 @@ f32 Rigidbody_rotation(Rigidbody rb);
 
 void SAT_projection(Vector2 vertices[], u32 vertices_len, Vector2 axis, f32* min, f32* max);
 
+f32 Signed2DTriArea(Vector2 a, Vector2 b, Vector2 c);
+
+bool LineVsLine(Vector2 a, Vector2 b, Vector2 c, Vector2 d, f32* t, Vector2* p);
+
+Vector2 ClosestPointToLine(Vector2 a, Vector2 b, Vector2 point);
+
 #endif//AUGUSTUS_PHYSICS_H

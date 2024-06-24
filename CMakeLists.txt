@@ -32,7 +32,10 @@ file(GLOB rlImGui_src
     ${augustus_CURRENT_DIR}/deps/rlImGui/*.cpp
 )
 
-target_sources(augustus PRIVATE ${augustus_src} ${rlImGui_src})
+target_sources(augustus PRIVATE 
+    ${augustus_src}
+    ${rlImGui_src}
+)
 
 target_include_directories(augustus PUBLIC
     ${augustus_CURRENT_DIR}/include

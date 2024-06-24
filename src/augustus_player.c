@@ -1,11 +1,10 @@
 #include "augustus_player.h"
 #include "augustus_level.h"
 #include "augustus_physics.h"
-#include "box2d/collision.h"
 #include <raylib.h>
 #include <raymath.h>
+
 #include <stdio.h>
-#include <math.h>
 
 static bool useCollisions = true;
 
@@ -43,17 +42,21 @@ void Player_update(Player* player) {
     if(Player_is_grounded(*player)) {
     }
 
-    Vector2 final = Vector2Scale(vel, GetFrameTime() * speed);
-    Vector2 new = Vector2Add(player->pos, final);
+    vel = Vector2Scale(vel, GetFrameTime() * speed);
 
     player->has_collision = false;
     if(useCollisions) {
-        Vector2 boundingBoxVertices[] = {
-            Vector2Add(new, (Vector2) { -HALF_WIDTH, -(player->height / 2.0f) }),
-            Vector2Add(new, (Vector2) { -HALF_WIDTH, player->height / 2.0f }),
-            Vector2Add(new, (Vector2) { HALF_WIDTH, -(player->height / 2.0f) }),
-            Vector2Add(new, (Vector2) { HALF_WIDTH, player->height / 2.0f }),
+        Vector2 min = { player->pos.x - HALF_WIDTH, player->pos.y - (player->height / 2.0) };
+        Vector2 max = { player->pos.x + HALF_WIDTH, player->pos.y + (player->height / 2.0) };
+
+        Vector2 d = {
+            fmax(min.x - player->pos.x, fmax(0, player->pos.x - max.x)),
+            fmax(min.y - player->pos.y, fmax(0, player->pos.y - max.y)),
         };
+        f32 EdgeDist = Vector2Length(d);
+
+        f32 t = 1.0f;
+        Vector2 p = {0}, normal = {0};
 
         for(u32 i = 0; i < level.segments_len; i++) {
             Segment* segment = level.segments + i;
@@ -62,28 +65,27 @@ void Player_update(Player* player) {
                 Vector2 b = segment->vertices[(j + 1) % segment->len];
                 Vector2 delta = Vector2Subtract(b, a);
 
-                u32 normals_len = 2;
-                Vector2 normals[] = { { -delta.y, delta.x }, delta };
+                f32 newt = 1.0f;
+                Vector2 newp = {0}, newnormal = {0};
+                bool intersect = LineVsLine(player->pos, Vector2Add(player->pos, vel), a, b, &newt, &newp);
+                if(intersect) {
+                    if(newt < t) {
+                        t = newt;
+                        p = newp;
+                        normal = newnormal;
 
-                Vector2 line_vertices[] = { a, b };
-
-                for(u32 k = 0; k < normals_len; k++) {
-                    f32 min1, max1, min2, max2;
-                    SAT_projection(boundingBoxVertices, 4, normals[k], &min1, &max1);
-                    SAT_projection(line_vertices, 2, normals[k], &min2, &max2);
-
-                    if (max1 < min2 || max2 < min1) {
-                        player->has_collision = true;
-                        goto done;
+                        Vector2 u = { b.y - a.y, a.x - b.x };
+                        Vector2 n = Vector2Normalize(u);
+                        f32 dir = Vector2DotProduct(Vector2Subtract(player->pos, a), n);
                     }
                 }
             }
         }
-done:
-        player->pos = new;
+
+        player->pos = Vector2Add(player->pos, Vector2Scale(vel, t - EdgeDist - EPSILON));
     }
     else {
-        player->pos = Vector2Add(player->pos, final);
+        player->pos = Vector2Add(player->pos, vel);
     }
 }
 
@@ -100,6 +102,7 @@ void Player_draw(Player* player) {
 }
 
 bool Player_is_grounded(Player player) {
+    return false;
 }
 
 void Player_toggle_collisions(void) {
