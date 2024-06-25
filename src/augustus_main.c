@@ -70,10 +70,12 @@ i32 main(void) {
 
     Player player = Player_make();
 
+    Rigidbody rb = Rigidbody_make(1, 1);
+
     while(!WindowShouldClose()) {
         Vector2 mouseWorldPosition = GetScreenToWorld2D(GetMousePosition(), camera);
 
-        if(!io->WantCaptureMouse) {
+        if(!io->WantCaptureMouse || state == GAMESTATE_GAMEPLAY) {
             if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
                 Vector2 delta = GetMouseDelta();
                 delta = Vector2Scale(delta, -1.0f/camera.zoom);
@@ -110,8 +112,12 @@ i32 main(void) {
 
         Player_draw(&player);
 
+        Rigidbody_draw(rb);
+
         Level_draw(level);
         Segment_draw(&drawSegment, RED);
+
+        EndMode2D();
 
         if(IsKeyPressed(KEY_TAB) && !io->WantCaptureKeyboard) {
             switch(state) {
@@ -120,12 +126,15 @@ i32 main(void) {
                     break;
                 case GAMESTATE_EDITOR:
                     state = GAMESTATE_GAMEPLAY;
+                    for(u32 i = 0; i < level.segments_len; i++) {
+                        Segment* segment = level.segments + i;
+                        Segment_update_body(segment);
+                    }
                     break;
                 default: break;
             }
         }
 
-        EndMode2D();
 
         if(state == GAMESTATE_EDITOR) {
             rlImGuiBegin();
@@ -136,13 +145,13 @@ i32 main(void) {
                 igSameLine(0, -1);
 
                 if(igButton("Save", (ImVec2) {0,0})) {
-                    Level_write_to_file(&level, TextFormat("resources/levels/%s.bin", levelName));
+                    Level_write_to_file(&level, levelName);
                 }
 
                 igSameLine(0, -1);
 
                 if(igButton("Load", (ImVec2) {0,0})) {
-                    if(!Level_read_from_file(&level, TextFormat("resources/levels/%s.bin", levelName))) {
+                    if(!Level_read_from_file(&level, levelName)) {
                         printf("Failed to load level from '%s.bin'", levelName);
                     }
                 }
@@ -224,7 +233,7 @@ i32 main(void) {
                         for(u32 i = 0; i < level.segments_len; i++) {
                             Segment* segment = level.segments + i;
 
-                            for(u32 j = 0; (j < segment->len && segment->wrap) || j < segment->len - 1; j++) {
+                            for(u32 j = 0; j < segment->len; j++) {
                                 Vector2 a = segment->vertices[j];
                                 Vector2 b = segment->vertices[(j + 1) % segment->len];
 
@@ -263,6 +272,8 @@ i32 main(void) {
 
         EndDrawing();
     }
+
+    Rigidbody_free(rb);
 
     Player_free(&player);
 

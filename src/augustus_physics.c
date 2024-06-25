@@ -1,16 +1,18 @@
 #include "augustus_physics.h"
 
+#include "augustus_level.h"
+
 #include "box2d/box2d.h"
 #include "box2d/collision.h"
+#include "box2d/types.h"
 #include "raymath.h"
 
 #include <math.h>
 
-static b2WorldId world;
+b2WorldId world;
 
 void Physics_init(void) {
     b2WorldDef worldDef = b2DefaultWorldDef();
-    worldDef.gravity = (b2Vec2){0.0f, -9.8f};
 
     world = b2CreateWorld(&worldDef);
 }
@@ -23,13 +25,14 @@ static f32 accumulator = 0;
 static f32 timestep = 1.0f / 60.0f;
 
 void Physics_sim(void) {
-    accumulator += GetFrameTime();
+    b2World_Step(world, GetFrameTime(), 4);
+}
 
-    while(accumulator >= timestep) {
-        b2World_Step(world, timestep, 4);
-        accumulator -= timestep;
+void Physics_from_level(void) {
+    for(u64 i = 0; i < level.segments_len; i++) {
     }
 }
+
 
 Rigidbody Rigidbody_make(f32 w, f32 h) {
     b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -55,7 +58,7 @@ void Rigidbody_free(Rigidbody rb) {
 
 void Rigidbody_draw(Rigidbody rb) {
     b2Vec2 pos = Rigidbody_pos(rb);
-    DrawRectangle(pos.x, pos.y, rb.w, rb.h, DARKPURPLE);
+    DrawRectangleV((Vector2) { pos.x, pos.y }, (Vector2) {rb.w, rb.h}, DARKPURPLE);
 }
 
 b2Vec2 Rigidbody_pos(Rigidbody rb) {
@@ -90,7 +93,6 @@ bool LineVsLine(Vector2 a, Vector2 b, Vector2 c, Vector2 d, f32* t, Vector2* p) 
         f32 a4 = a3 + a2 - a1;
 
         if(a3 * a4 < 0.0f) {
-
             *t = a3 / (a3 - a4);
             *p = Vector2Multiply(Vector2AddValue(a, *t), Vector2Subtract(b, a));
             return true;

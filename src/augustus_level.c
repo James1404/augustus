@@ -8,7 +8,8 @@
 #include <string.h>
 #include <time.h>
 
-static u32 format_version = 1;
+#include "box2d/box2d.h"
+#include "box2d/types.h"
 
 Level level;
 
@@ -16,6 +17,7 @@ Segment Segment_make(void) {
     return (Segment) {
         .vertices = NULL,
         .len = 0,
+        .body_created = false,
     };
 }
 
@@ -57,7 +59,7 @@ void Segment_insert(Segment* segment, Vector2 elem, u64 at) {
 
 void Segment_draw(Segment* segment, Color color) {
     if(segment->len >= 2) {
-        for(u32 j = 0; (j < segment->len && segment->wrap) || j < segment->len - 1; j++) {
+        for(u32 j = 0; j < segment->len; j++) {
             Vector2 a = segment->vertices[j];
             Vector2 b = segment->vertices[(j + 1) % segment->len];
             Vector2 delta = Vector2Subtract(b, a);
@@ -65,10 +67,33 @@ void Segment_draw(Segment* segment, Color color) {
             Vector2 midpoint = Vector2Scale(Vector2Add(a,b), 0.5);
 
             DrawLineV(a, b, color);
+            DrawCircleV(a, 0.5f, YELLOW);
 
             DrawLineV(midpoint, Vector2Add(midpoint, Vector2Scale(normal, 0.1f)), RED);
         }
     }
+}
+
+void Segment_update_body(Segment* segment) {
+    if(segment->body_created) {
+        b2DestroyChain(segment->shape);
+    }
+    else {
+        b2BodyDef bodyDef = b2DefaultBodyDef();
+        bodyDef.type = b2_staticBody;
+        bodyDef.position = (b2Vec2) { 0, 0 };
+
+        segment->body = b2CreateBody(world, &bodyDef);
+    }
+
+    b2ChainDef chainDef = b2DefaultChainDef();
+    chainDef.count = segment->len;
+    chainDef.points = (b2Vec2*)segment->vertices;
+    chainDef.isLoop = true;
+
+    segment->shape = b2CreateChain(segment->body, &chainDef);
+
+    segment->body_created = true;
 }
 
 Splat Splat_make(const char* filepath) {
@@ -140,106 +165,4 @@ void Level_remove_segment(Level* level, u64 idx) {
     level->segments_len--;
 
     level->segments = realloc(level->segments, sizeof(level->segments[0]) * level->segments_len);
-}
-
-void Level_write_to_file(Level* level, const char* filename) {
-    FILE* file;
-
-    file = fopen(filename, "wb");
-
-    fwrite(&format_version, sizeof(format_version), 1, file);
-
-    fwrite(&level->segments_len, sizeof(level->segments_len), 1, file);
-    for(u32 i = 0; i < level->segments_len; i++) {
-        Segment* segment = level->segments + i;
-        fwrite(&segment->len, sizeof(segment->len), 1, file);
-        fwrite(segment->vertices, sizeof(segment->vertices[0]), segment->len, file);
-        fwrite(&segment->wrap, sizeof(segment->wrap), 1, file);
-    }
-
-    fwrite(&level->splats_len, sizeof(level->splats_len), 1, file);
-    for(u32 i = 0; i < level->splats_len; i++) {
-        Splat* splat = level->splats + i;
-
-        u64 name_len = strlen(splat->filepath);
-        fwrite(&name_len, sizeof(name_len), 1, file);
-        fwrite(splat->filepath, sizeof(splat->filepath[0]), name_len, file);
-
-        fwrite(&splat->pos, sizeof(splat->pos), 1, file);
-        fwrite(&splat->scl, sizeof(splat->scl), 1, file);
-        fwrite(&splat->rot, sizeof(splat->rot), 1, file);
-        fwrite(&splat->layer, sizeof(splat->layer), 1, file);
-    }
-
-    fwrite(&level->enemies_len, sizeof(level->enemies_len), 1, file);
-    if(level->enemies) {
-        fwrite(level->enemies, sizeof(level->enemies[0]), level->enemies_len, file);
-    }
-
-    fclose(file);
-}
-
-static bool Level_read_V1(Level* level, FILE* file) {
-    fread(&level->segments_len, sizeof(level->segments_len), 1, file);
-    level->segments = malloc(sizeof(level->segments[0]) * level->segments_len);
-
-    for(u32 i = 0; i < level->segments_len; i++) {
-        Segment* segment = level->segments + i;
-        fread(&segment->len, sizeof(segment->len), 1, file);
-        segment->vertices = malloc(sizeof(segment->vertices[0])*segment->len);
-        fread(segment->vertices, sizeof(segment->vertices[0]), segment->len, file);
-
-        fread(&segment->wrap, sizeof(segment->wrap), 1, file);
-    }
-
-    fread(&level->splats_len, sizeof(level->splats_len), 1, file);
-    level->splats = malloc(sizeof(level->splats[0]) * level->splats_len);
-    for(u32 i = 0; i < level->splats_len; i++) {
-        Splat* splat = level->splats + i;
-
-        u64 name_len = 0;
-        fread(&name_len, sizeof(name_len), 1, file);
-        fread(&splat->filepath, sizeof(splat->filepath[0]), name_len, file);
-
-        fread(&splat->pos, sizeof(splat->pos), name_len, file);
-        fread(&splat->scl, sizeof(splat->scl), name_len, file);
-        fread(&splat->rot, sizeof(splat->rot), name_len, file);
-        fread(&splat->layer, sizeof(splat->layer), name_len, file);
-    }
-
-    fread(&level->enemies_len, sizeof(level->enemies_len), 1, file);
-    level->enemies = malloc(sizeof(level->enemies[0]) * level->enemies_len);
-    fread(level->enemies, sizeof(level->enemies[0]), level->enemies_len, file);
-
-    return true;
-}
-
-bool Level_read_from_file(Level* level, const char* filename) {
-    FILE* file;
-
-    file = fopen(filename, "rb");
-
-    bool success = false;
-
-    if(file) {
-        Level_free(level);
-
-        u32 version = 0;
-        fread(&version, sizeof(u32), 1, file);
-
-        switch(version) {
-            case 1:
-                Level_read_V1(level, file);
-                break;
-            default:
-                *level = Level_make();
-                break;
-        }
-
-        success = true;
-    }
-
-    fclose(file);
-
-    return success;
 }

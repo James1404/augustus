@@ -5,11 +5,15 @@
 
 #include "box2d/id.h"
 #include "box2d/math_functions.h"
+#include "box2d/collision.h"
 #include "raylib.h"
+
+extern b2WorldId world;
 
 void Physics_init(void);
 void Physics_free(void);
 void Physics_sim(void);
+void Physics_from_level(void);
 
 typedef struct {
     b2BodyId body;
