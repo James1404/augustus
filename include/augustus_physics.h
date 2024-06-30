@@ -32,7 +32,9 @@ void SAT_projection(Vector2 vertices[], u32 vertices_len, Vector2 axis, f32* min
 
 f32 Signed2DTriArea(Vector2 a, Vector2 b, Vector2 c);
 
-bool LineVsLine(Vector2 a, Vector2 b, Vector2 c, Vector2 d, f32* t, Vector2* p);
+bool LineVsLine(Vector2 a, Vector2 b, Vector2 c, Vector2 d, f32* t, Vector2* p, Vector2* normal);
+
+bool LineVsAABB(Vector2 pos, Vector2 size, Vector2 l1, Vector2 l2);
 
 Vector2 ClosestPointToLine(Vector2 a, Vector2 b, Vector2 point);
 

@@ -5,6 +5,7 @@
 #include "box2d/box2d.h"
 #include "box2d/collision.h"
 #include "box2d/types.h"
+#include "raylib.h"
 #include "raymath.h"
 
 #include <math.h>
@@ -13,6 +14,7 @@ b2WorldId world;
 
 void Physics_init(void) {
     b2WorldDef worldDef = b2DefaultWorldDef();
+    worldDef.gravity = (b2Vec2) { 0, 9.8f };
 
     world = b2CreateWorld(&worldDef);
 }
@@ -21,16 +23,11 @@ void Physics_free(void) {
     b2DestroyWorld(world);
 }
 
-static f32 accumulator = 0;
-static f32 timestep = 1.0f / 60.0f;
-
 void Physics_sim(void) {
     b2World_Step(world, GetFrameTime(), 4);
 }
 
 void Physics_from_level(void) {
-    for(u64 i = 0; i < level.segments_len; i++) {
-    }
 }
 
 
@@ -41,7 +38,7 @@ Rigidbody Rigidbody_make(f32 w, f32 h) {
 
     b2BodyId body = b2CreateBody(world, &bodyDef);
 
-    b2Polygon shape = b2MakeBox(w / 2.0f, h / 2.0f);
+    b2Polygon shape = b2MakeBox(w, h);
 
     b2ShapeDef shapeDef = b2DefaultShapeDef();
     shapeDef.density = 1;
@@ -58,7 +55,17 @@ void Rigidbody_free(Rigidbody rb) {
 
 void Rigidbody_draw(Rigidbody rb) {
     b2Vec2 pos = Rigidbody_pos(rb);
-    DrawRectangleV((Vector2) { pos.x, pos.y }, (Vector2) {rb.w, rb.h}, DARKPURPLE);
+
+    f32 rotation = b2Body_GetAngle(rb.body);
+
+    DrawRectanglePro(
+        (Rectangle) { pos.x, pos.y, rb.w * 2, rb.h * 2 },
+        (Vector2) { rb.w, rb.h },
+        rotation,
+        DARKPURPLE
+    );
+
+    //DrawRectangleV((Vector2) { pos.x, pos.y }, (Vector2) {rb.w, rb.h}, DARKPURPLE);
 }
 
 b2Vec2 Rigidbody_pos(Rigidbody rb) {
@@ -84,7 +91,9 @@ f32 Signed2DTriArea(Vector2 a, Vector2 b, Vector2 c) {
     return (a.x - c.x) * (b.y - c.y) - (a.y - c.y) * (b.x - c.x);
 }
 
-bool LineVsLine(Vector2 a, Vector2 b, Vector2 c, Vector2 d, f32* t, Vector2* p) {
+bool LineVsLine(Vector2 a, Vector2 b, Vector2 c, Vector2 d, f32* t, Vector2* p, Vector2* normal) {
+    Vector2 dir = Vector2Subtract(b, a);
+
     f32 a1 = Signed2DTriArea(a, b, d);
     f32 a2 = Signed2DTriArea(a, b, c);
 
@@ -95,6 +104,18 @@ bool LineVsLine(Vector2 a, Vector2 b, Vector2 c, Vector2 d, f32* t, Vector2* p) 
         if(a3 * a4 < 0.0f) {
             *t = a3 / (a3 - a4);
             *p = Vector2Multiply(Vector2AddValue(a, *t), Vector2Subtract(b, a));
+
+            Vector2 delta = Vector2Subtract(d, c);
+
+            Vector2 norm = { -delta.y, delta.x };
+
+            if(Vector2DotProduct(dir, norm) > 0) {
+                *normal = (Vector2) { delta.y, -delta.x };
+            }
+            else {
+                *normal = norm;
+            }
+
             return true;
         }
     }

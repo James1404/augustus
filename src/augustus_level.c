@@ -1,168 +1,88 @@
 #include "augustus_level.h"
 
-#include "raylib.h"
-#include "raymath.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-#include "box2d/box2d.h"
-#include "box2d/types.h"
+#include <math.h>
 
 Level level;
 
-Segment Segment_make(void) {
-    return (Segment) {
-        .vertices = NULL,
-        .len = 0,
-        .body_created = false,
+Vector2 Vector2_tile(Vector2 v) {
+    return (Vector2) {
+        roundf(v.x - 0.5f),
+        roundf(v.y - 0.5f),
     };
 }
 
-void Segment_free(Segment* segment) {
-    if(segment->vertices) free(segment->vertices);
-    *segment = Segment_make();
+Room Room_make(u64 w, u64 h) {
+    return (Room) {
+        .name = "Unnamed Room",
+        .w = w,
+        .h = h,
+        .data = calloc(w * h, sizeof(Tile))
+    };
 }
 
-void Segment_add_vertex(Segment* segment, Vector2 pos) {
-    u32 idx = segment->len;
-    segment->len++;
+void Room_free(Room* room) {
+    free(room->data);
 
-    segment->vertices = realloc(segment->vertices, sizeof(segment->vertices[0]) * segment->len);
-
-    segment->vertices[idx] = pos;
+    room->data = NULL;
 }
 
-void Segment_delete_vertex(Segment* segment, u64 idx) {
-    if(idx < 0 || idx > segment->len) return;
-
-    for(u64 i = idx; i < segment->len - 1; i++) {
-        segment->vertices[i] = segment->vertices[i + 1];
-    }
-
-    segment->len--;
-
-    segment->vertices = realloc(segment->vertices, sizeof(segment->vertices[0]) * segment->len);
+void Room_resize(Room* room, u64 w, u64 h) {
+    room->data = realloc(room->data, w * h * sizeof(Tile));
 }
 
-void Segment_insert(Segment* segment, Vector2 elem, u64 at) {
-    segment->len++;
-    segment->vertices = realloc(segment->vertices, sizeof(segment->vertices[0]) * segment->len);
+Tile* Room_at(Room* room, u64 x, u64 y) {
+    if(x > room->w || x < 0) return NULL;
+    if(y > room->h || y < 0) return NULL;
 
-
-    memcpy(segment->vertices + at + 1, segment->vertices + at, (segment->len - at) * sizeof(segment->vertices[0]));
-
-    segment->vertices[at] = elem;
+    return &room->data[x + y * room->w];
 }
 
-void Segment_draw(Segment* segment, Color color) {
-    if(segment->len >= 2) {
-        for(u32 j = 0; j < segment->len; j++) {
-            Vector2 a = segment->vertices[j];
-            Vector2 b = segment->vertices[(j + 1) % segment->len];
-            Vector2 delta = Vector2Subtract(b, a);
-            Vector2 normal = { -delta.y, delta.x };
-            Vector2 midpoint = Vector2Scale(Vector2Add(a,b), 0.5);
-
-            DrawLineV(a, b, color);
-            DrawCircleV(a, 0.5f, YELLOW);
-
-            DrawLineV(midpoint, Vector2Add(midpoint, Vector2Scale(normal, 0.1f)), RED);
+void Room_draw(Room* room) {
+    for(u64 x = 0; x < room->w; x++) {
+        for(u64 y = 0; y < room->h; y++) {
+            Tile* tile = &room->data[x + y * room->w];
+            Color color = BLANK;
+            switch(tile->type) {
+                case TILE_SOLID:
+                    color = WHITE;
+                    break;
+                default: break;
+            }
+            DrawRectangle(x, y, 1, 1, color);
         }
     }
 }
 
-void Segment_update_body(Segment* segment) {
-    if(segment->body_created) {
-        b2DestroyChain(segment->shape);
-    }
-    else {
-        b2BodyDef bodyDef = b2DefaultBodyDef();
-        bodyDef.type = b2_staticBody;
-        bodyDef.position = (b2Vec2) { 0, 0 };
-
-        segment->body = b2CreateBody(world, &bodyDef);
-    }
-
-    b2ChainDef chainDef = b2DefaultChainDef();
-    chainDef.count = segment->len;
-    chainDef.points = (b2Vec2*)segment->vertices;
-    chainDef.isLoop = true;
-
-    segment->shape = b2CreateChain(segment->body, &chainDef);
-
-    segment->body_created = true;
-}
-
-Splat Splat_make(const char* filepath) {
-    return (Splat) {
-        .texture = LoadTexture(filepath),
-        .filepath = filepath,
-        .pos = Vector2Zero(),
-        .scl = 1.0f,
-        .layer = 0
-    };
-    
-}
-
-void Splat_free(Splat* splat) {
-    UnloadTexture(splat->texture);
-}
-
-void Splat_draw(Splat* splat) {
-    DrawTextureEx(splat->texture, splat->pos, splat->rot, splat->scl, WHITE);
-}
-
 Level Level_make(void) {
     return (Level) {
-        .segments = NULL,
-        .segments_len = 0,
-        .splats = NULL,
-        .splats_len = 0,
-        .enemies = NULL,
-        .enemies_len = 0,
+        .rooms = NULL,
+        .rooms_len = 0,
     };
 }
 
 void Level_free(Level* level) {
-    for(u32 i = 0; i < level->segments_len; i++) {
-        Segment* segment = level->segments + i;
-        Segment_free(segment);
-    }
-
-    if(level->segments) free(level->segments);
-    if(level->splats) free(level->splats);
-    if(level->enemies) free(level->enemies);
+    if(level->rooms) free(level->rooms);
 
     *level = Level_make();
 }
 
 void Level_draw(Level level) {
-    for(u32 i = 0; i < level.segments_len; i++) {
-        Segment* seg = level.segments + i;
-        Segment_draw(seg, GREEN);
-    }
+    Room_draw(level.rooms + level.current_room);
 }
 
-void Level_new_segment(Level* level, Segment segment) {
-    u32 idx = level->segments_len;
-    level->segments_len++;
-
-    level->segments = realloc(level->segments, sizeof(level->segments[0]) * level->segments_len);
-
-    level->segments[idx] = segment;
+Room* Level_get(Level* level) {
+    return level->rooms + level->current_room;
 }
 
-void Level_remove_segment(Level* level, u64 idx) {
-    if(idx < 0 || idx > level->segments_len) return;
+void Level_new_room(Level* level, u64 w, u64 h) {
+    u64 idx = level->rooms_len;
 
-    for(u64 i = idx; i < level->segments_len - 1; i++) {
-        level->segments[i] = level->segments[i + 1];
-    }
+    level->rooms_len++;
 
-    level->segments_len--;
-
-    level->segments = realloc(level->segments, sizeof(level->segments[0]) * level->segments_len);
+    level->rooms = realloc(level->rooms, sizeof(level->rooms[0]) * level->rooms_len);
+    level->rooms[idx] = Room_make(w, h);
 }

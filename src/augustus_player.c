@@ -1,8 +1,6 @@
 #include "augustus_player.h"
 #include "augustus_level.h"
-#include "augustus_physics.h"
-#include "box2d/box2d.h"
-#include "box2d/collision.h"
+
 #include <raylib.h>
 #include <raymath.h>
 
@@ -46,22 +44,7 @@ void Player_update(Player* player) {
 
     player->has_collision = false;
     if(useCollisions) {
-        f32 t = 1.0f;
-        for(u32 i = 0; i < level.segments_len; i++) {
-            Segment* segment = level.segments + i;
-            for(u32 j = 0; j < segment->len; j++) {
-                Vector2 a = segment->vertices[j];
-                Vector2 b = segment->vertices[(j + 1) % segment->len];
-
-                f32 newt = INFINITY;
-                Vector2 newp = {0};
-                if(LineVsLine(player->pos, Vector2Add(player->pos, vel), a, b, &newt, &newp)) {
-                    if(newt < t) t = newt;
-                }
-            }
-        }
-
-        player->pos = Vector2Add(player->pos, Vector2Scale(vel, t - 0.01f));
+        player->pos = Vector2Add(player->pos, vel);
     }
     else {
         player->pos = Vector2Add(player->pos, vel);
