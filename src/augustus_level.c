@@ -6,6 +6,10 @@
 #include <time.h>
 #include <math.h>
 
+static inline int imin(int a, int b) {
+    return a < b ? a : b;
+}
+
 Level level;
 
 Vector2 Vector2_tile(Vector2 v) {
@@ -31,7 +35,16 @@ void Room_free(Room* room) {
 }
 
 void Room_resize(Room* room, u64 w, u64 h) {
-    room->data = realloc(room->data, w * h * sizeof(Tile));
+    Tile* temp = calloc(w * h, sizeof(Tile));
+    for(u64 y = 0; y < room->h && y < h; y++) {
+        u64 new_w = imin(room->w, w);
+        memcpy(&temp[w * y], &room->data[room->w * y], new_w * sizeof(Tile));
+    }
+
+    room->data = temp;
+
+    room->w = w;
+    room->h = h;
 }
 
 Tile* Room_at(Room* room, u64 x, u64 y) {
@@ -47,11 +60,15 @@ void Room_draw(Room* room) {
             Tile* tile = &room->data[x + y * room->w];
             Color color = BLANK;
             switch(tile->type) {
-                case TILE_SOLID:
+                case TILE_Solid:
                     color = WHITE;
+                    break;
+                case TILE_Spike:
+                    color = RED;
                     break;
                 default: break;
             }
+
             DrawRectangle(x, y, 1, 1, color);
         }
     }

@@ -42,6 +42,8 @@ static char levelName[LEVEL_NAME_LEN] = "";
 
 static i64 roomW = 0, roomH = 0;
 
+static TileType brushType = TILE_None;
+
 i32 main(void) {
     String window_name = STR("Hey, window");
 
@@ -109,14 +111,21 @@ i32 main(void) {
         Room* room = Level_get(&level);
         DrawRectangleLinesEx((Rectangle) { 0, 0, room->w, room->h }, 0.1f, GREEN);
 
-        Vector2 cursor = Vector2_tile(mouseWorldPosition);
-        DrawRectangleV(cursor, Vector2One(), (Color) { 255, 255, 255, 100 });
+        switch(tool) {
+            case EDITORTOOL_None:
+                break;
+            case EDITORTOOL_Brush: {
+                Vector2 cursor = Vector2_tile(mouseWorldPosition);
+                DrawRectangleV(cursor, Vector2One(), (Color) { 255, 255, 255, 100 });
 
-        if(IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-            Tile* tile = Room_at(room, cursor.x, cursor.y);
-            if((cursor.x < room->w && cursor.x >= 0) && (cursor.y < room->h && cursor.y >= 0)) {
-                tile->type = TILE_SOLID;
-            }
+                if(IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+                    Tile* tile = Room_at(room, cursor.x, cursor.y);
+                    if((cursor.x < room->w && cursor.x >= 0) && (cursor.y < room->h && cursor.y >= 0)) {
+                        tile->type = brushType;
+                    }
+                }
+            } break;
+            default: {} break;
         }
 
         EndMode2D();
@@ -151,6 +160,11 @@ i32 main(void) {
                     if(!Level_read_from_file(&level, levelName)) {
                         printf("Failed to load level from '%s.bin'", levelName);
                     }
+
+                    Room* room = Level_get(&level);
+
+                    roomW = room->w;
+                    roomH = room->h;
                 }
 
                 igSeparator();
@@ -172,6 +186,11 @@ i32 main(void) {
                         bool selected = (level.current_room == i);
                         if(igSelectable_Bool(level.rooms[i].name, selected, 0, (ImVec2){0,0})) {
                             level.current_room = i;
+
+                            Room* room = Level_get(&level);
+
+                            roomW = room->w;
+                            roomH = room->h;
                         }
 
                         if (selected) igSetItemDefaultFocus();
@@ -206,9 +225,17 @@ i32 main(void) {
                 igSeparator();
 
                 switch(tool) {
-                    case EDITORTOOL_None: {} break;
+                    case EDITORTOOL_None:
+                        break;
+                    case EDITORTOOL_Brush:
+#define BUTTON(x) if(igButton(#x, (ImVec2) {0,0})) { brushType = TILE_##x; }
+                        FOR_TILE_TYPES(BUTTON)
+#undef BUTTON
+                        break;
                     default: {} break;
                 }
+
+                igEnd();
             }
 
             rlImGuiEnd();

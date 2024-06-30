@@ -10,8 +10,7 @@ typedef enum {
 } PlayerState;
 
 typedef struct {
-    Vector2 pos;
-    f32 height;
+    Vector2 pos, size;
     u32 state;
     bool has_collision;
 } Player;

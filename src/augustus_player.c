@@ -9,7 +9,7 @@ static bool useCollisions = true;
 Player Player_make(void) {
     return (Player) {
         .pos = (Vector2) {0},
-        .height = 2,
+        .size = (Vector2) { 1.0f, 2.0f },
         .state = PLAYER_STANDING,
         .has_collision = false,
     };
@@ -19,7 +19,6 @@ void Player_free(Player* player) {
 }
 
 #define WALK_SPEED 10.0f
-#define HALF_WIDTH 0.5f
 
 void Player_update(Player* player) {
     Vector2 vel = {0};
@@ -52,7 +51,9 @@ void Player_update(Player* player) {
 }
 
 void Player_draw(Player* player) {
-    DrawCircleV(player->pos, 1, RED);
+    Vector2 center = Vector2Scale(Vector2Add(player->pos, player->size), 0.5f);
+    Vector2 half = Vector2Scale(player->size, 0.5f);
+    DrawRectangleV(player->pos, player->size, BLUE);
 }
 
 bool Player_is_grounded(Player player) {

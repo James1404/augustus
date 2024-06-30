@@ -7,11 +7,19 @@
 
 Vector2 Vector2_tile(Vector2 v);
 
+#define FOR_TILE_TYPES(DO)\
+    DO(None)\
+    DO(Solid)\
+    DO(Spike)
+
+typedef enum {
+#define ENUM(x) TILE_##x,
+    FOR_TILE_TYPES(ENUM)
+#undef ENUM
+} TileType;
+
 typedef struct {
-    enum {
-        TILE_NONE,
-        TILE_SOLID
-    } type;
+    TileType type;
     u64 sprite_index;
 } Tile;
 
