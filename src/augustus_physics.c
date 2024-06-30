@@ -134,3 +134,10 @@ Vector2 ClosestPointToLine(Vector2 a, Vector2 b, Vector2 point) {
 
     return Vector2Add(a, Vector2Scale(ab, t));
 }
+
+bool AABBvsAABB(Vector2 min1, Vector2 max1, Vector2 min2, Vector2 max2) {
+    if (max1.x < min2.x || min1.x > max2.x) return false;
+    if (max1.y < min2.y || min1.y > max2.y) return false;
+
+    return true;
+}

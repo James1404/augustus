@@ -43,6 +43,7 @@ static char levelName[LEVEL_NAME_LEN] = "";
 static i64 roomW = 0, roomH = 0;
 
 static TileType brushType = TILE_None;
+static i32 brushSize = 1;
 
 i32 main(void) {
     String window_name = STR("Hey, window");
@@ -61,7 +62,7 @@ i32 main(void) {
 
     level = Level_make();
 
-    Level_new_room(&level, 40, 20);
+    Level_new_room(&level);
 
     Player player = Player_make();
 
@@ -108,24 +109,32 @@ i32 main(void) {
 
         Level_draw(level);
 
-        Room* room = Level_get(&level);
-        DrawRectangleLinesEx((Rectangle) { 0, 0, room->w, room->h }, 0.1f, GREEN);
+        if(state == GAMESTATE_EDITOR) {
+            Room* room = Level_get(&level);
+            DrawRectangleLinesEx((Rectangle) { 0, 0, room->w, room->h }, 0.1f, GREEN);
 
-        switch(tool) {
-            case EDITORTOOL_None:
-                break;
-            case EDITORTOOL_Brush: {
-                Vector2 cursor = Vector2_tile(mouseWorldPosition);
-                DrawRectangleV(cursor, Vector2One(), (Color) { 255, 255, 255, 100 });
+            switch(tool) {
+                case EDITORTOOL_None:
+                    break;
+                case EDITORTOOL_Brush: {
+                    Vector2 size = { brushSize, brushSize };
+                    Vector2 cursor = Vector2_tile(Vector2Subtract(mouseWorldPosition, Vector2Scale(size, 0.5f)));
+                    DrawRectangleV(cursor, size, (Color) { 255, 255, 255, 100 });
 
-                if(IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-                    Tile* tile = Room_at(room, cursor.x, cursor.y);
-                    if((cursor.x < room->w && cursor.x >= 0) && (cursor.y < room->h && cursor.y >= 0)) {
-                        tile->type = brushType;
+                    if(!io->WantCaptureMouse && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+                        for(i64 x = cursor.x; x < cursor.x + size.x; x++) {
+                            for(i64 y = cursor.y; y < cursor.y + size.y; y++) {
+                                Tile* tile = Room_at(room, x, y);
+
+                                if((x < room->w && x >= 0) && (y < room->h && y >= 0)) {
+                                    tile->type = brushType;
+                                }
+                            }
+                        }
                     }
-                }
-            } break;
-            default: {} break;
+                } break;
+                default: {} break;
+            }
         }
 
         EndMode2D();
@@ -170,12 +179,13 @@ i32 main(void) {
                 igSeparator();
 
                 if(igButton("New Room", (ImVec2) {0,0})) {
-                    Level_new_room(&level, 40, 20);
+                    level.current_room = Level_new_room(&level);
                 }
 
                 igSameLine(0, -1);
 
                 if(igButton("Delete Current Room", (ImVec2) {0,0})) {
+                    Level_remove_room(&level, level.current_room);
                 }
 
                 igSeparator();
@@ -231,6 +241,8 @@ i32 main(void) {
 #define BUTTON(x) if(igButton(#x, (ImVec2) {0,0})) { brushType = TILE_##x; }
                         FOR_TILE_TYPES(BUTTON)
 #undef BUTTON
+
+                        igDragInt("Size", &brushSize, 1, 0, 10000, "%d", 0);
                         break;
                     default: {} break;
                 }

@@ -25,6 +25,9 @@ typedef struct {
 
 #define ROOM_NAME_LEN 24
 
+#define DEFAULT_ROOM_WIDTH 40
+#define DEFAULT_ROOM_HEIGHT 30
+
 typedef struct {
     char name[24];
     u64 w, h;
@@ -56,7 +59,8 @@ void Level_free(Level* level);
 
 void Level_draw(Level level);
 
-void Level_new_room(Level* level, u64 w, u64 h);
+u64 Level_new_room(Level* level);
+void Level_remove_room(Level* level, u64 idx);
 
 Room* Level_get(Level* level);
 

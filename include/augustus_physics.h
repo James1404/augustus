@@ -38,4 +38,6 @@ bool LineVsAABB(Vector2 pos, Vector2 size, Vector2 l1, Vector2 l2);
 
 Vector2 ClosestPointToLine(Vector2 a, Vector2 b, Vector2 point);
 
+bool AABBvsAABB(Vector2 min1, Vector2 max1, Vector2 min2, Vector2 max2);
+
 #endif//AUGUSTUS_PHYSICS_H

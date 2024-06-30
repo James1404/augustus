@@ -95,11 +95,32 @@ Room* Level_get(Level* level) {
     return level->rooms + level->current_room;
 }
 
-void Level_new_room(Level* level, u64 w, u64 h) {
+u64 Level_new_room(Level* level) {
     u64 idx = level->rooms_len;
 
     level->rooms_len++;
 
     level->rooms = realloc(level->rooms, sizeof(level->rooms[0]) * level->rooms_len);
-    level->rooms[idx] = Room_make(w, h);
+    level->rooms[idx] = Room_make(DEFAULT_ROOM_WIDTH, DEFAULT_ROOM_HEIGHT);
+
+    return idx;
+}
+
+void Level_remove_room(Level* level, u64 idx) {
+    if(idx < 0 || idx >= level->rooms_len) return;
+
+    if(idx < level->rooms_len - 1) { // is not last
+        memmove(level->rooms + idx, level->rooms + idx + 1, sizeof(level->rooms[0]) * (level->rooms_len - idx));
+    }
+
+    level->rooms_len--;
+    level->rooms = realloc(level->rooms, sizeof(level->rooms[0]) * level->rooms_len);
+
+    if(level->current_room == idx) {
+        level->current_room = idx <= 1 ? 0 : idx - 1;
+    }
+
+    if(level->rooms_len == 0) {
+        Level_new_room(level);
+    }
 }
