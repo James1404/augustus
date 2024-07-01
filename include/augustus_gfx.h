@@ -10,10 +10,15 @@ typedef struct {
 
 typedef struct {
     Frame* frames;
-    u32 allocated, length;
+    u32 len;
 
     f32 fps;
 } Animation;
+
+Animation Animation_make(void);
+void Animation_free(Animation* animation);
+
+void Animation_push(Animation* animation, Frame frame);
 
 typedef struct AnimationMapEntry {
     Hash hash;
@@ -35,6 +40,8 @@ void AnimationMap_set(AnimationMap* map, char* key, Animation value);
 Animation AnimationMap_get(AnimationMap* map, char* key);
 
 bool AnimationMap_exists(AnimationMap* map, char* key);
+
+AnimationMap AnimationMap_load(const char* filepath);
 
 typedef struct {
     AnimationMap animations;

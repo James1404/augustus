@@ -16,11 +16,14 @@ static inline int imax(int a, int b) {
 
 static bool useCollisions = true;
 
+static Vector2 StandingSize = { 0.9f, 1.9f };
+static Vector2 CrouchingSize = { 0.9f, 0.9f };
+
 Player Player_make(void) {
     return (Player) {
         .pos = (Vector2) { -2, -2 },
         .vel = Vector2Zero(),
-        .size = (Vector2) { 0.9f, 1.9f },
+        .size = StandingSize,
         .state = PLAYER_STANDING,
         .has_collision = false,
     };
@@ -64,7 +67,7 @@ static bool Player_collision(Player* player, Vector2* min, Vector2* max) {
     return false;
 }
 
-#define EPSILON 0.0001f
+#define EPSILON 0.000001f
 #define GRAVITY 13.0f
 #define VERTICAL_CAP 0.05f 
 #define JUMP_HEIGHT -0.002f
@@ -133,6 +136,25 @@ void Player_update(Player* player) {
 
     if(IsKeyPressed(KEY_G)) Player_toggle_collisions();
 
+    if(IsKeyPressed(KEY_C)) {
+        if(player->state != PLAYER_CROUCHING) {
+            player->state = PLAYER_CROUCHING;
+        }
+        else {
+            player->state = PLAYER_STANDING;
+        }
+    }
+
+    switch(player->state) {
+        case PLAYER_STANDING:
+            player->size = StandingSize;
+            break;
+        case PLAYER_CROUCHING:
+            player->size = CrouchingSize;
+            speed /= 2.0f;
+            break;
+    }
+
     player->vel.x = xDir * GetFrameTime() * speed;
 
     player->has_collision = false;
@@ -164,10 +186,6 @@ void Player_update(Player* player) {
 
 void Player_draw(Player* player) {
     DrawRectangleV(player->pos, player->size, player->is_grounded ? GREEN : BLUE);
-}
-
-bool Player_is_grounded(Player player) {
-    return false;
 }
 
 void Player_toggle_collisions(void) {

@@ -1,4 +1,5 @@
 #include "augustus_common.h"
+#include "augustus_gfx.h"
 #include "augustus_physics.h"
 #include "augustus_player.h"
 #include "augustus_level.h"
@@ -61,6 +62,8 @@ i32 main(void) {
     camera.zoom = 20;
 
     level = Level_make();
+
+    AnimationMap_load("resources/player.json");
 
     Level_new_room(&level);
 
@@ -242,7 +245,7 @@ i32 main(void) {
                         FOR_TILE_TYPES(BUTTON)
 #undef BUTTON
 
-                        igDragInt("Size", &brushSize, 1, 0, 10000, "%d", 0);
+                        igDragInt("Size", &brushSize, 0.2f, 0, 10000, "%d", 0);
                         break;
                     default: {} break;
                 }

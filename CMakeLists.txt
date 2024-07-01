@@ -46,10 +46,13 @@ add_subdirectory(${augustus_CURRENT_DIR}/deps/raylib)
 add_subdirectory(${augustus_CURRENT_DIR}/deps/box2c)
 add_subdirectory(${augustus_CURRENT_DIR}/deps/cimgui)
 
+add_subdirectory(${augustus_CURRENT_DIR}/deps/json-c)
+
 target_link_libraries(augustus PUBLIC
     raylib
     box2d
     cimgui
+    json-c
 )
 
 add_custom_command(
