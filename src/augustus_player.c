@@ -19,7 +19,8 @@ static bool useCollisions = true;
 Player Player_make(void) {
     return (Player) {
         .pos = (Vector2) { -2, -2 },
-        .size = (Vector2) { 1.0f, 2.0f },
+        .vel = Vector2Zero(),
+        .size = (Vector2) { 0.9f, 1.9f },
         .state = PLAYER_STANDING,
         .has_collision = false,
     };
@@ -63,12 +64,17 @@ static bool Player_collision(Player* player, Vector2* min, Vector2* max) {
     return false;
 }
 
-static void Player_do_collision(Player* player, Vector2  vel) {
+#define EPSILON 0.0001f
+#define GRAVITY 13.0f
+#define VERTICAL_CAP 0.05f 
+#define JUMP_HEIGHT -0.002f
+
+static void Player_do_collision(Player* player) {
     Vector2 tilemin, tilemax;
     Vector2 min, max;
 
-    if(vel.x != 0) {
-        player->pos.x += vel.x;
+    if(player->vel.x != 0) {
+        player->pos.x += player->vel.x;
 
         min = player->pos;
         max = Vector2Add(player->pos, player->size);
@@ -77,7 +83,7 @@ static void Player_do_collision(Player* player, Vector2  vel) {
             player->has_collision = true;
 
             f32 delta = 0;
-            if(vel.x > 0) {
+            if(player->vel.x > 0) {
                 delta = tilemin.x - max.x - EPSILON;
             }
             else {
@@ -88,8 +94,8 @@ static void Player_do_collision(Player* player, Vector2  vel) {
         }
     }
 
-    if(vel.y != 0) {
-        player->pos.y += vel.y;
+    if(player->vel.y != 0) {
+        player->pos.y += player->vel.y;
 
         min = player->pos;
         max = Vector2Add(player->pos, player->size);
@@ -98,10 +104,12 @@ static void Player_do_collision(Player* player, Vector2  vel) {
             player->has_collision = true;
 
             f32 delta = 0;
-            if(vel.y > 0) {
+            if(player->vel.y > 0) {
+                player->is_grounded = true;
                 delta = tilemin.y - max.y - EPSILON;
             }
             else {
+                player->vel.y = 0;
                 delta = tilemax.y - min.y + EPSILON;
             }
 
@@ -111,12 +119,11 @@ static void Player_do_collision(Player* player, Vector2  vel) {
 }
 
 void Player_update(Player* player) {
-    Vector2 vel = {0};
-    if(IsKeyDown(KEY_A)) vel.x -= 1;
-    if(IsKeyDown(KEY_D)) vel.x += 1;
+    player->is_grounded = false;
 
-    if(IsKeyDown(KEY_W)) vel.y -= 1;
-    if(IsKeyDown(KEY_S)) vel.y += 1;
+    f32 xDir = 0;
+    if(IsKeyDown(KEY_A)) xDir -= 1;
+    if(IsKeyDown(KEY_D)) xDir += 1;
 
     f32 speed = WALK_SPEED;
 
@@ -126,22 +133,37 @@ void Player_update(Player* player) {
 
     if(IsKeyPressed(KEY_G)) Player_toggle_collisions();
 
-    if(Player_is_grounded(*player)) {
-    }
-
-    vel = Vector2Scale(vel, GetFrameTime() * speed);
+    player->vel.x = xDir * GetFrameTime() * speed;
 
     player->has_collision = false;
     if(useCollisions) {
-        Player_do_collision(player, vel);
+        player->vel.y += GRAVITY * GetFrameTime() * GetFrameTime();
+        if(player->vel.y > VERTICAL_CAP) player->vel.y = VERTICAL_CAP;
+
+        Player_do_collision(player);
+
+        if(player->is_grounded) {
+            player->vel.y = 0.0001f;
+
+            if(IsKeyPressed(KEY_SPACE)) {
+                printf("JUMP");
+                player->vel.y = JUMP_HEIGHT;
+            }
+        }
+
     }
     else {
-        player->pos = Vector2Add(player->pos, vel);
+        f32 yDir = 0;
+        if(IsKeyDown(KEY_W)) yDir -= 1;
+        if(IsKeyDown(KEY_S)) yDir += 1;
+        player->vel.y = yDir * GetFrameTime() * speed;
+
+        player->pos = Vector2Add(player->pos, player->vel);
     }
 }
 
 void Player_draw(Player* player) {
-    DrawRectangleV(player->pos, player->size, player->has_collision ? PURPLE :BLUE);
+    DrawRectangleV(player->pos, player->size, player->is_grounded ? GREEN : BLUE);
 }
 
 bool Player_is_grounded(Player player) {

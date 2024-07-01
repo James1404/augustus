@@ -10,9 +10,11 @@ typedef enum {
 } PlayerState;
 
 typedef struct {
-    Vector2 pos, size;
+    Vector2 pos, vel, size;
     u32 state;
     bool has_collision;
+
+    bool is_grounded;
 } Player;
 
 Player Player_make(void);
