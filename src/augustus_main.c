@@ -18,7 +18,7 @@
 #include <rlImGui.h>
 
 #define MIN_ZOOM 0.125f
-#define MAX_ZOOM 100.0f
+#define MAX_ZOOM 1000.0f
 
 static const int screenWidth = 1280, screenHeight = 720;
 
