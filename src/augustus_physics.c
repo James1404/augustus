@@ -1,6 +1,6 @@
 #include "augustus_physics.h"
 
-#include "augustus_level.h"
+#include "augustus_world.h"
 
 #include "box2d/box2d.h"
 #include "box2d/collision.h"
@@ -10,21 +10,21 @@
 
 #include <math.h>
 
-b2WorldId world;
+b2WorldId physicsWorld;
 
 void Physics_init(void) {
     b2WorldDef worldDef = b2DefaultWorldDef();
     worldDef.gravity = (b2Vec2) { 0, 9.8f };
 
-    world = b2CreateWorld(&worldDef);
+    physicsWorld = b2CreateWorld(&worldDef);
 }
 
 void Physics_free(void) {
-    b2DestroyWorld(world);
+    b2DestroyWorld(physicsWorld);
 }
 
 void Physics_sim(void) {
-    b2World_Step(world, GetFrameTime(), 4);
+    b2World_Step(physicsWorld, GetFrameTime(), 4);
 }
 
 void Physics_from_level(void) {
@@ -36,7 +36,7 @@ Rigidbody Rigidbody_make(f32 w, f32 h) {
     bodyDef.type = b2_dynamicBody;
     bodyDef.position = (b2Vec2) { 0, 0 };
 
-    b2BodyId body = b2CreateBody(world, &bodyDef);
+    b2BodyId body = b2CreateBody(physicsWorld, &bodyDef);
 
     b2Polygon shape = b2MakeBox(w, h);
 

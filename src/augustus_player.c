@@ -1,5 +1,5 @@
 #include "augustus_player.h"
-#include "augustus_level.h"
+#include "augustus_world.h"
 #include "augustus_physics.h"
 
 #include <raylib.h>
@@ -22,6 +22,10 @@ static inline int imax(int a, int b) {
 }
 
 static bool useCollisions = true;
+
+static void Player_toggle_collisions(void) {
+    useCollisions = !useCollisions;
+}
 
 static Vector2 StandingSize = { 0.9f, 1.9f };
 static Vector2 CrouchingSize = { 0.9f, 0.9f };
@@ -52,7 +56,7 @@ void Player_free(Player* player) {
 #define WALK_SPEED 10.0f
 
 static bool Player_collision(Player* player, Vector2* min, Vector2* max) {
-    Room* room = Level_get(&level);
+    Room* room = World_get(&world);
 
     Vector2 pmin = player->pos;
     Vector2 pmax = Vector2Add(player->pos, player->size);
@@ -62,7 +66,7 @@ static bool Player_collision(Player* player, Vector2* min, Vector2* max) {
 
     // check only in the tiles that the player could be
     // speeds up checks
-    // TODO: Add level bounds checking
+    // TODO: Add world bounds checking
 
     for(i64 x = imax(checkmin.x, 0); x < imin(checkmax.x, room->w); x++) {
         for(i64 y = imax(checkmin.y, 0); y < imin(checkmax.y, room->h); y++) {
@@ -178,7 +182,7 @@ static void Player_shoot(Player* player) {
     }
 
     player->bullets[player->bullets_len] = (Bullet) {
-        .pos = player->pos,
+        .pos = (Vector2) { player->pos.x, player->pos.y + player->size.y / 2.0f },
         .dir = bullet_dir,
         .size = (Vector2) { 0.5f, 0.2f },
         .speed = 10.0f,
@@ -203,7 +207,7 @@ static void Player_delete_bullet(Player* player, u32 idx) {
 }
 
 static void Player_update_bullets(Player* player) {
-    Room* room = Level_get(&level);
+    Room* room = World_get(&world);
 
     for(u32 i = 0; i < player->bullets_len; i++) {
         Bullet* bullet = player->bullets + i;
@@ -229,7 +233,6 @@ static void Player_update_bullets(Player* player) {
                 Vector2 tilemax = (Vector2) { x + 1, y + 1 };
 
                 if(AABBvsAABB(min, max, tilemin, tilemax)) {
-                    printf("DELETE BULLET\n");
                     Player_delete_bullet(player, i);
                 }
             }
@@ -270,10 +273,10 @@ void Player_update(Player* player) {
 
     if(IsKeyPressed(KEY_G)) Player_toggle_collisions();
 
-    if(IsKeyPressed(KEY_DOWN)) {
+    if(IsKeyPressed(KEY_S)) {
         player->state = PLAYER_CROUCHING;
     }
-    if(IsKeyPressed(KEY_UP)) {
+    if(IsKeyPressed(KEY_W)) {
         player->state = PLAYER_STANDING;
     }
 
@@ -320,14 +323,13 @@ void Player_draw(Player* player) {
     for(u32 i = 0; i < player->bullets_len; i++) {
         Bullet* bullet = player->bullets + i;
 
+        DrawRectangleV(bullet->pos, bullet->size, RED);
+#if 0
+        Rectangle rec = { bullet->pos.x, bullet->pos.y, bullet->size.x, bullet->size.y };
         Vector2 origin = Vector2Scale(Vector2Add(bullet->pos, bullet->size), 0.5f);
-        Rectangle rec = {bullet->pos.x, bullet->pos.y, bullet->size.x, bullet->size.y};
         f32 angle = atan2f(bullet->dir.y, bullet->dir.x) * RAD2DEG;
-        DrawRectanglePro(rec, origin, angle, RED);
+
+        DrawRectanglePro(rec, bullet->pos, angle, RED);
+#endif
     }
-
-}
-
-void Player_toggle_collisions(void) {
-    useCollisions = !useCollisions;
 }

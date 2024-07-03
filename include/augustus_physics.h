@@ -8,12 +8,12 @@
 #include "box2d/collision.h"
 #include "raylib.h"
 
-extern b2WorldId world;
+extern b2WorldId physicsWorld;
 
 void Physics_init(void);
 void Physics_free(void);
 void Physics_sim(void);
-void Physics_from_level(void);
+void Physics_from_world(void);
 
 typedef struct {
     b2BodyId body;

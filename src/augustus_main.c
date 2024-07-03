@@ -2,7 +2,7 @@
 #include "augustus_gfx.h"
 #include "augustus_physics.h"
 #include "augustus_player.h"
-#include "augustus_level.h"
+#include "augustus_world.h"
 #include "augustus_string.h"
 
 #include <math.h>
@@ -39,7 +39,7 @@ typedef enum {
 
 static GameState state = GAMESTATE_EDITOR;
 static EditorTool tool = EDITORTOOL_None;
-static char levelName[LEVEL_NAME_LEN] = "";
+static char worldName[WORLD_NAME_LEN] = "";
 
 static i64 roomW = 0, roomH = 0;
 
@@ -61,11 +61,11 @@ i32 main(void) {
     Camera2D camera = { 0 };
     camera.zoom = 20;
 
-    level = Level_make();
+    world = World_make();
 
     AnimationMap_load("resources/player.json");
 
-    Level_new_room(&level);
+    World_new_room(&world);
 
     Player player = Player_make();
 
@@ -110,10 +110,10 @@ i32 main(void) {
 
         Rigidbody_draw(rb);
 
-        Level_draw(level);
+        World_draw(world);
 
         if(state == GAMESTATE_EDITOR) {
-            Room* room = Level_get(&level);
+            Room* room = World_get(&world);
             DrawRectangleLinesEx((Rectangle) { 0, 0, room->w, room->h }, 0.1f, GREEN);
 
             switch(tool) {
@@ -158,22 +158,22 @@ i32 main(void) {
             rlImGuiBegin();
 
             if(igBegin("Settings", NULL, 0)) {
-                igInputText("##Level Name", levelName, LEVEL_NAME_LEN, 0, NULL, NULL);
+                igInputText("##World Name", worldName, WORLD_NAME_LEN, 0, NULL, NULL);
 
                 igSameLine(0, -1);
 
                 if(igButton("Save", (ImVec2) {0,0})) {
-                    Level_write_to_file(&level, levelName);
+                    World_write_to_file(&world, worldName);
                 }
 
                 igSameLine(0, -1);
 
                 if(igButton("Load", (ImVec2) {0,0})) {
-                    if(!Level_read_from_file(&level, levelName)) {
-                        printf("Failed to load level from '%s.bin'", levelName);
+                    if(!World_read_from_file(&world, worldName)) {
+                        printf("Failed to load world from '%s.bin'", worldName);
                     }
 
-                    Room* room = Level_get(&level);
+                    Room* room = World_get(&world);
 
                     roomW = room->w;
                     roomH = room->h;
@@ -182,25 +182,25 @@ i32 main(void) {
                 igSeparator();
 
                 if(igButton("New Room", (ImVec2) {0,0})) {
-                    level.current_room = Level_new_room(&level);
+                    world.current_room = World_new_room(&world);
                 }
 
                 igSameLine(0, -1);
 
                 if(igButton("Delete Current Room", (ImVec2) {0,0})) {
-                    Level_remove_room(&level, level.current_room);
+                    World_remove_room(&world, world.current_room);
                 }
 
                 igSeparator();
 
                 if(igBeginListBox("Rooms", (ImVec2){0,0})) {
-                    for(u32 i = 0; i < level.rooms_len; i++) {
+                    for(u32 i = 0; i < world.rooms_len; i++) {
                         igPushID_Int(i);
-                        bool selected = (level.current_room == i);
-                        if(igSelectable_Bool(level.rooms[i].name, selected, 0, (ImVec2){0,0})) {
-                            level.current_room = i;
+                        bool selected = (world.current_room == i);
+                        if(igSelectable_Bool(world.rooms[i].name, selected, 0, (ImVec2){0,0})) {
+                            world.current_room = i;
 
-                            Room* room = Level_get(&level);
+                            Room* room = World_get(&world);
 
                             roomW = room->w;
                             roomH = room->h;
@@ -217,7 +217,7 @@ i32 main(void) {
             }
 
             if(igBegin("Room", NULL, 0)) {
-                Room* room = Level_get(&level);
+                Room* room = World_get(&world);
                 igInputText("##Room Name", room->name, ROOM_NAME_LEN, 0, NULL, NULL);
 
                 igDragInt("Width", &roomW, 1.0f, 0, 10000, "%lu", 0);
@@ -263,7 +263,7 @@ i32 main(void) {
 
     Player_free(&player);
 
-    Level_free(&level);
+    World_free(&world);
 
     Physics_free();
 

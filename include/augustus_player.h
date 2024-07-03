@@ -45,6 +45,4 @@ void Player_free(Player* player);
 void Player_update(Player* player);
 void Player_draw(Player* player);
 
-void Player_toggle_collisions(void);
-
 #endif//AUGUSTUS_PLAYER_H

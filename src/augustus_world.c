@@ -1,4 +1,4 @@
-#include "augustus_level.h"
+#include "augustus_world.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@ static inline int imin(int a, int b) {
     return a < b ? a : b;
 }
 
-Level level;
+World world;
 
 Vector2 Vector2_tile(Vector2 v) {
     return (Vector2) {
@@ -74,53 +74,53 @@ void Room_draw(Room* room) {
     }
 }
 
-Level Level_make(void) {
-    return (Level) {
+World World_make(void) {
+    return (World) {
         .rooms = NULL,
         .rooms_len = 0,
     };
 }
 
-void Level_free(Level* level) {
-    if(level->rooms) free(level->rooms);
+void World_free(World* world) {
+    if(world->rooms) free(world->rooms);
 
-    *level = Level_make();
+    *world = World_make();
 }
 
-void Level_draw(Level level) {
-    Room_draw(level.rooms + level.current_room);
+void World_draw(World world) {
+    Room_draw(world.rooms + world.current_room);
 }
 
-Room* Level_get(Level* level) {
-    return level->rooms + level->current_room;
+Room* World_get(World* world) {
+    return world->rooms + world->current_room;
 }
 
-u64 Level_new_room(Level* level) {
-    u64 idx = level->rooms_len;
+u64 World_new_room(World* world) {
+    u64 idx = world->rooms_len;
 
-    level->rooms_len++;
+    world->rooms_len++;
 
-    level->rooms = realloc(level->rooms, sizeof(level->rooms[0]) * level->rooms_len);
-    level->rooms[idx] = Room_make(DEFAULT_ROOM_WIDTH, DEFAULT_ROOM_HEIGHT);
+    world->rooms = realloc(world->rooms, sizeof(world->rooms[0]) * world->rooms_len);
+    world->rooms[idx] = Room_make(DEFAULT_ROOM_WIDTH, DEFAULT_ROOM_HEIGHT);
 
     return idx;
 }
 
-void Level_remove_room(Level* level, u64 idx) {
-    if(idx < 0 || idx >= level->rooms_len) return;
+void World_remove_room(World* world, u64 idx) {
+    if(idx < 0 || idx >= world->rooms_len) return;
 
-    if(idx < level->rooms_len - 1) { // is not last
-        memmove(level->rooms + idx, level->rooms + idx + 1, sizeof(level->rooms[0]) * (level->rooms_len - idx));
+    if(idx < world->rooms_len - 1) { // is not last
+        memmove(world->rooms + idx, world->rooms + idx + 1, sizeof(world->rooms[0]) * (world->rooms_len - idx));
     }
 
-    level->rooms_len--;
-    level->rooms = realloc(level->rooms, sizeof(level->rooms[0]) * level->rooms_len);
+    world->rooms_len--;
+    world->rooms = realloc(world->rooms, sizeof(world->rooms[0]) * world->rooms_len);
 
-    if(level->current_room == idx) {
-        level->current_room = idx <= 1 ? 0 : idx - 1;
+    if(world->current_room == idx) {
+        world->current_room = idx <= 1 ? 0 : idx - 1;
     }
 
-    if(level->rooms_len == 0) {
-        Level_new_room(level);
+    if(world->rooms_len == 0) {
+        World_new_room(world);
     }
 }

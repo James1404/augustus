@@ -1,5 +1,5 @@
-#ifndef AUGUSTUS_LEVEL_H
-#define AUGUSTUS_LEVEL_H
+#ifndef AUGUSTUS_WORLD_H
+#define AUGUSTUS_WORLD_H
 
 #include "augustus_common.h"
 
@@ -43,28 +43,28 @@ Tile* Room_at(Room* room, u64 x, u64 y);
 
 void Room_draw(Room* room);
 
-#define LEVEL_NAME_LEN 24
+#define WORLD_NAME_LEN 24
 
 typedef struct {
     Room* rooms;
     u64 rooms_len;
 
     u64 current_room;
-} Level;
+} World;
 
-extern Level level;
+extern World world;
 
-Level Level_make(void);
-void Level_free(Level* level);
+World World_make(void);
+void World_free(World* world);
 
-void Level_draw(Level level);
+void World_draw(World world);
 
-u64 Level_new_room(Level* level);
-void Level_remove_room(Level* level, u64 idx);
+u64 World_new_room(World* world);
+void World_remove_room(World* world, u64 idx);
 
-Room* Level_get(Level* level);
+Room* World_get(World* world);
 
-void Level_write_to_file(Level* level, char name[LEVEL_NAME_LEN]);
-bool Level_read_from_file(Level* level, char name[LEVEL_NAME_LEN]);
+void World_write_to_file(World* world, char name[WORLD_NAME_LEN]);
+bool World_read_from_file(World* world, char name[WORLD_NAME_LEN]);
 
-#endif//AUGUSTUS_LEVEL_H
+#endif//AUGUSTUS_WORLD_H
