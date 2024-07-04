@@ -55,14 +55,15 @@ void Player_free(Player* player) {
 
 #define WALK_SPEED 10.0f
 
+#define PLAYER_MIN ((Vector2) { player->pos.x, player->pos.y - player->size.y })
+#define PLAYER_MAX ((Vector2) { player->pos.x + player->size.x, player->pos.y })
+
+
 static bool Player_collision(Player* player, Vector2* min, Vector2* max) {
     Room* room = World_get(&world);
 
-    Vector2 pmin = player->pos;
-    Vector2 pmax = Vector2Add(player->pos, player->size);
-
-    Vector2 checkmin = Vector2_tile(player->pos);
-    Vector2 checkmax = Vector2_tile(Vector2AddValue(Vector2Add(player->pos, player->size), 1));
+    Vector2 checkmin = Vector2_tile(PLAYER_MIN);
+    Vector2 checkmax = Vector2_tile(Vector2AddValue(PLAYER_MAX, 1));
 
     // check only in the tiles that the player could be
     // speeds up checks
@@ -78,7 +79,7 @@ static bool Player_collision(Player* player, Vector2* min, Vector2* max) {
             Vector2 tilemin = (Vector2) { x, y };
             Vector2 tilemax = (Vector2) { x + 1, y + 1 };
 
-            if(AABBvsAABB(pmin, pmax, tilemin, tilemax)) {
+            if(AABBvsAABB(PLAYER_MIN, PLAYER_MAX, tilemin, tilemax)) {
                 *min = tilemin;
                 *max = tilemax;
                 return true;
@@ -96,8 +97,8 @@ static void Player_move_x(Player* player, f32 velX) {
     player->vel.x = velX;
     player->pos.x += player->vel.x;
 
-    min = player->pos;
-    max = Vector2Add(player->pos, player->size);
+    min = PLAYER_MIN;
+    max = PLAYER_MAX;
 
     if(player->vel.x > 0) {
         player->direction = PLAYER_RIGHT;
@@ -128,8 +129,8 @@ static void Player_move_y(Player* player, f32 velY) {
     player->vel.y += velY;
     player->pos.y += player->vel.y;
 
-    min = player->pos;
-    max = Vector2Add(player->pos, player->size);
+    min = PLAYER_MIN;
+    max = PLAYER_MAX;
 
     if(Player_collision(player, &tilemin, &tilemax)) {
         player->has_collision = true;
@@ -182,10 +183,10 @@ static void Player_shoot(Player* player) {
     }
 
     player->bullets[player->bullets_len] = (Bullet) {
-        .pos = (Vector2) { player->pos.x, player->pos.y + player->size.y / 2.0f },
+        .pos = (Vector2) { PLAYER_MIN.x, PLAYER_MIN.y + player->size.y / 2.0f },
         .dir = bullet_dir,
         .size = (Vector2) { 0.5f, 0.2f },
-        .speed = 10.0f,
+        .speed = 30.0f,
     };
     player->bullets_len++;
 
@@ -246,8 +247,8 @@ void Player_update(Player* player) {
     player->is_grounded = false;
 
     f32 xdir = 0;
-    if(IsKeyDown(KEY_A)) xdir -= 1;
-    if(IsKeyDown(KEY_D)) xdir += 1;
+    if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) xdir -= 1;
+    if(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) xdir += 1;
 
     f32 speed = WALK_SPEED;
 
@@ -273,11 +274,16 @@ void Player_update(Player* player) {
 
     if(IsKeyPressed(KEY_G)) Player_toggle_collisions();
 
-    if(IsKeyPressed(KEY_S)) {
+    if(IsKeyPressed(KEY_S) || IsKeyDown(KEY_DOWN)) {
         player->state = PLAYER_CROUCHING;
     }
-    if(IsKeyPressed(KEY_W)) {
+    if(IsKeyPressed(KEY_W) || IsKeyDown(KEY_UP)) {
+        Vector2 tilemin, tilemax;
         player->state = PLAYER_STANDING;
+        player->size = StandingSize;
+        if(Player_collision(player, &tilemin, &tilemax)) {
+            player->state = PLAYER_CROUCHING;
+        }
     }
 
     switch(player->state) {
@@ -307,8 +313,8 @@ void Player_update(Player* player) {
     }
     else {
         f32 ydir = 0;
-        if(IsKeyDown(KEY_W)) ydir -= 1;
-        if(IsKeyDown(KEY_S)) ydir += 1;
+        if(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) ydir -= 1;
+        if(IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) ydir += 1;
 
         player->vel.x = xdir * GetFrameTime() * speed;
         player->vel.y = ydir * GetFrameTime() * speed;
@@ -318,7 +324,8 @@ void Player_update(Player* player) {
 }
 
 void Player_draw(Player* player) {
-    DrawRectangleV(player->pos, player->size, player->is_grounded ? GREEN : BLUE);
+    Vector2 p = (Vector2) { player->pos.x, player->pos.y - player->size.y };
+    DrawRectangleV(p, player->size, player->is_grounded ? GREEN : BLUE);
 
     for(u32 i = 0; i < player->bullets_len; i++) {
         Bullet* bullet = player->bullets + i;

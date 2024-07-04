@@ -2,6 +2,7 @@
 #define AUGUSTUS_WORLD_H
 
 #include "augustus_common.h"
+#include "augustus_enemies.h"
 
 #include <raylib.h>
 
@@ -32,6 +33,9 @@ typedef struct {
     char name[24];
     u64 w, h;
     Tile* data;
+
+    Enemy* enemies;
+    u32 enemies_len;
 } Room;
 
 Room Room_make(u64 w, u64 h);

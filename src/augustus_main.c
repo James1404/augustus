@@ -30,6 +30,7 @@ typedef enum {
 #define FOR_EDITORTOOLS(DO)\
     DO(None)\
     DO(Brush)\
+    DO(Enemies)\
 
 typedef enum {
 #define ENUM(x) EDITORTOOL_##x,
@@ -45,6 +46,8 @@ static i64 roomW = 0, roomH = 0;
 
 static TileType brushType = TILE_None;
 static i32 brushSize = 1;
+
+static EnemyType enemyBrushType = ENEMY_Bat;
 
 i32 main(void) {
     String window_name = STR("Hey, window");
@@ -246,6 +249,11 @@ i32 main(void) {
 #undef BUTTON
 
                         igDragInt("Size", &brushSize, 0.2f, 0, 10000, "%d", 0);
+                        break;
+                    case EDITORTOOL_Enemies:
+#define BUTTON(x) if(igButton(#x, (ImVec2) {0,0})) { enemyBrushType = ENEMY_##x; }
+                        FOR_ENEMY_TYPES(BUTTON)
+#undef BUTTON
                         break;
                     default: {} break;
                 }

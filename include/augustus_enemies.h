@@ -4,12 +4,17 @@
 #include "augustus_common.h"
 #include "raylib.h"
 
+#define FOR_ENEMY_TYPES(DO)\
+    DO(Bat)\
+
 typedef enum {
-    ENEMY_BAT,
+#define ENUM(x) ENEMY_##x,
+    FOR_ENEMY_TYPES(ENUM)
+#undef ENUM
 } EnemyType;
 
 typedef struct {
-    Vector2 pos;
+    Vector2 pos, size;
 
     u32 type;
 
