@@ -14,11 +14,17 @@ static bool World_read_V1(World* world, FILE* file) {
 
     for(u32 i = 0; i < world->rooms_len; i++) {
         Room* room = world->rooms + i;
+        *room = (Room) { 0 };
+
         fread(&room->name, sizeof(room->name[0]), ROOM_NAME_LEN, file);
         fread(&room->w, sizeof(room->w), 1, file);
         fread(&room->h, sizeof(room->h), 1, file);
         room->data = malloc(sizeof(room->data[0])*room->w*room->h);
         fread(room->data, sizeof(room->data[0]), room->w * room->h, file);
+
+        fread(&room->enemies_len, sizeof(room->enemies_len), 1, file);
+        room->enemies = malloc(sizeof(room->enemies[0]) * room->enemies_len);
+        fread(room->enemies, sizeof(room->enemies[0]), room->enemies_len, file);
     }
 
     return true;
@@ -36,6 +42,9 @@ void World_write_to_file(World* world, char name[WORLD_NAME_LEN]) {
         fwrite(&room->w, sizeof(room->w), 1, file);
         fwrite(&room->h, sizeof(room->h), 1, file);
         fwrite(room->data, sizeof(room->data[0]), room->w * room->h, file);
+
+        fwrite(&room->enemies_len, sizeof(room->enemies_len), 1, file);
+        fwrite(room->enemies, sizeof(room->enemies[0]), room->enemies_len, file);
     }
 
     fclose(file);

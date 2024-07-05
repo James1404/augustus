@@ -39,6 +39,10 @@ typedef struct {
     u32 bullets_len, bullets_allocated;
 } Player;
 
+#define PLAYER_MIN(p) ((Vector2) { (p).pos.x, (p).pos.y - (p).size.y })
+#define PLAYER_MAX(p) ((Vector2) { (p).pos.x + (p).size.x, (p).pos.y })
+#define PLAYER_CENTRE(p) ((Vector2) { PLAYER_MIN((p)).x + ((p).size.x / 2.0f), PLAYER_MIN((p)).y + ((p).size.y / 2.0f) })
+
 Player Player_make(void);
 void Player_free(Player* player);
 

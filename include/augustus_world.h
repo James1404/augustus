@@ -2,6 +2,7 @@
 #define AUGUSTUS_WORLD_H
 
 #include "augustus_common.h"
+#include "augustus_player.h"
 #include "augustus_enemies.h"
 
 #include <raylib.h>
@@ -35,17 +36,19 @@ typedef struct {
     Tile* data;
 
     Enemy* enemies;
-    u32 enemies_len;
+    u32 enemies_len, enemies_allocated;
 } Room;
 
 Room Room_make(u64 w, u64 h);
 void Room_free(Room* room);
 
-void Room_resize(Room* room, u64 w, u64 h);
-
-Tile* Room_at(Room* room, u64 x, u64 y);
-
+void Room_update(Room* room);
 void Room_draw(Room* room);
+
+void Room_add_enemy(Room* room, Enemy enemy);
+
+void Room_resize(Room* room, u64 w, u64 h);
+Tile* Room_at(Room* room, u64 x, u64 y);
 
 #define WORLD_NAME_LEN 24
 
@@ -53,6 +56,7 @@ typedef struct {
     Room* rooms;
     u64 rooms_len;
 
+    Player player;
     u64 current_room;
 } World;
 
@@ -61,6 +65,7 @@ extern World world;
 World World_make(void);
 void World_free(World* world);
 
+void World_update(World* world);
 void World_draw(World world);
 
 u64 World_new_room(World* world);

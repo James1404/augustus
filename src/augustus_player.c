@@ -55,15 +55,11 @@ void Player_free(Player* player) {
 
 #define WALK_SPEED 10.0f
 
-#define PLAYER_MIN ((Vector2) { player->pos.x, player->pos.y - player->size.y })
-#define PLAYER_MAX ((Vector2) { player->pos.x + player->size.x, player->pos.y })
-
-
 static bool Player_collision(Player* player, Vector2* min, Vector2* max) {
     Room* room = World_get(&world);
 
-    Vector2 checkmin = Vector2_tile(PLAYER_MIN);
-    Vector2 checkmax = Vector2_tile(Vector2AddValue(PLAYER_MAX, 1));
+    Vector2 checkmin = Vector2_tile(PLAYER_MIN(*player));
+    Vector2 checkmax = Vector2_tile(Vector2AddValue(PLAYER_MAX(*player), 1));
 
     // check only in the tiles that the player could be
     // speeds up checks
@@ -79,7 +75,7 @@ static bool Player_collision(Player* player, Vector2* min, Vector2* max) {
             Vector2 tilemin = (Vector2) { x, y };
             Vector2 tilemax = (Vector2) { x + 1, y + 1 };
 
-            if(AABBvsAABB(PLAYER_MIN, PLAYER_MAX, tilemin, tilemax)) {
+            if(AABBvsAABB(PLAYER_MIN(*player), PLAYER_MAX(*player), tilemin, tilemax)) {
                 *min = tilemin;
                 *max = tilemax;
                 return true;
@@ -97,8 +93,8 @@ static void Player_move_x(Player* player, f32 velX) {
     player->vel.x = velX;
     player->pos.x += player->vel.x;
 
-    min = PLAYER_MIN;
-    max = PLAYER_MAX;
+    min = PLAYER_MIN(*player);
+    max = PLAYER_MAX(*player);
 
     if(player->vel.x > 0) {
         player->direction = PLAYER_RIGHT;
@@ -129,8 +125,8 @@ static void Player_move_y(Player* player, f32 velY) {
     player->vel.y += velY;
     player->pos.y += player->vel.y;
 
-    min = PLAYER_MIN;
-    max = PLAYER_MAX;
+    min = PLAYER_MIN(*player);
+    max = PLAYER_MAX(*player);
 
     if(Player_collision(player, &tilemin, &tilemax)) {
         player->has_collision = true;
@@ -183,7 +179,8 @@ static void Player_shoot(Player* player) {
     }
 
     player->bullets[player->bullets_len] = (Bullet) {
-        .pos = (Vector2) { PLAYER_MIN.x, PLAYER_MIN.y + player->size.y / 2.0f },
+        //.pos = (Vector2) { PLAYER_MIN(*player).x, PLAYER_MIN(*player).y + player->size.y / 2.0f },
+        .pos = PLAYER_CENTRE(*player),
         .dir = bullet_dir,
         .size = (Vector2) { 0.5f, 0.2f },
         .speed = 30.0f,
@@ -219,6 +216,9 @@ static void Player_update_bullets(Player* player) {
 
         Vector2 min = bullet->pos;
         Vector2 max = Vector2Add(min, bullet->size);
+
+        for(u32 i = 0; i < room->enemies_len; i++) {
+        }
 
         Vector2 checkmin = Vector2_tile(bullet->pos);
         Vector2 checkmax = Vector2_tile(Vector2AddValue(Vector2Add(bullet->pos, bullet->size), 1));
@@ -324,9 +324,6 @@ void Player_update(Player* player) {
 }
 
 void Player_draw(Player* player) {
-    Vector2 p = (Vector2) { player->pos.x, player->pos.y - player->size.y };
-    DrawRectangleV(p, player->size, player->is_grounded ? GREEN : BLUE);
-
     for(u32 i = 0; i < player->bullets_len; i++) {
         Bullet* bullet = player->bullets + i;
 
@@ -339,4 +336,8 @@ void Player_draw(Player* player) {
         DrawRectanglePro(rec, bullet->pos, angle, RED);
 #endif
     }
+
+    Vector2 p = (Vector2) { player->pos.x, player->pos.y - player->size.y };
+    DrawRectangleV(p, player->size, player->is_grounded ? GREEN : BLUE);
+
 }

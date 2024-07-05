@@ -70,8 +70,6 @@ i32 main(void) {
 
     World_new_room(&world);
 
-    Player player = Player_make();
-
     Rigidbody rb = Rigidbody_make(1, 1);
 
     while(!WindowShouldClose()) {
@@ -97,7 +95,7 @@ i32 main(void) {
 
         switch(state) {
             case GAMESTATE_GAMEPLAY: {
-                Player_update(&player);
+                World_update(&world);
                 Physics_sim();
             } break;
             case GAMESTATE_EDITOR: {
@@ -108,8 +106,6 @@ i32 main(void) {
         ClearBackground(BLACK);
 
         BeginMode2D(camera);
-
-        Player_draw(&player);
 
         Rigidbody_draw(rb);
 
@@ -137,6 +133,15 @@ i32 main(void) {
                                 }
                             }
                         }
+                    }
+                } break;
+                case EDITORTOOL_Enemies: {
+                    Vector2 cursor = mouseWorldPosition;
+                    DrawRectangleV(cursor, Vector2One(), (Color) { 255, 255, 255, 100 });
+
+                    if(!io->WantCaptureMouse && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+                        Room* room = World_get(&world);
+                        Room_add_enemy(room, Enemy_make(enemyBrushType, cursor));
                     }
                 } break;
                 default: {} break;
@@ -268,8 +273,6 @@ i32 main(void) {
     }
 
     Rigidbody_free(rb);
-
-    Player_free(&player);
 
     World_free(&world);
 
