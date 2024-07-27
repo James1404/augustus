@@ -2,12 +2,7 @@
 #define AUGUSTUS_PLAYER_H
 
 #include "augustus_common.h"
-#include "raylib.h"
-
-typedef struct {
-    Vector2 pos, dir, size;
-    f32 speed;
-} Bullet;
+#include "augustus_math.h"
 
 typedef enum {
     PLAYER_STANDING,
@@ -26,22 +21,20 @@ typedef enum {
 } PlayerArmAngle;
 
 typedef struct {
-    Vector2 pos, vel, size;
+    vec2s pos, vel, size;
     u32 state;
     
     u8 direction, arm_angle;
 
+    u32 max_health, health;
+
     bool has_collision;
-
     bool is_grounded;
-
-    Bullet* bullets;
-    u32 bullets_len, bullets_allocated;
 } Player;
 
-#define PLAYER_MIN(p) ((Vector2) { (p).pos.x, (p).pos.y - (p).size.y })
-#define PLAYER_MAX(p) ((Vector2) { (p).pos.x + (p).size.x, (p).pos.y })
-#define PLAYER_CENTRE(p) ((Vector2) { PLAYER_MIN((p)).x + ((p).size.x / 2.0f), PLAYER_MIN((p)).y + ((p).size.y / 2.0f) })
+#define PLAYER_MIN(p) ((vec2s) { (p).pos.x, (p).pos.y - (p).size.y })
+#define PLAYER_MAX(p) ((vec2s) { (p).pos.x + (p).size.x, (p).pos.y })
+#define PLAYER_CENTRE(p) ((vec2s) { PLAYER_MIN((p)).x + ((p).size.x / 2.0f), PLAYER_MIN((p)).y + ((p).size.y / 2.0f) })
 
 Player Player_make(void);
 void Player_free(Player* player);

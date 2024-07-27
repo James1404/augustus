@@ -1,7 +1,5 @@
 #include "augustus_world.h"
 
-#include "raylib.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,7 +21,14 @@ static bool World_read_V1(World* world, FILE* file) {
         fread(room->data, sizeof(room->data[0]), room->w * room->h, file);
 
         fread(&room->enemies_len, sizeof(room->enemies_len), 1, file);
-        room->enemies = malloc(sizeof(room->enemies[0]) * room->enemies_len);
+        room->enemies_allocated = room->enemies_len;
+        if(room->enemies_len <= 0) {
+            room->enemies_len = 0;
+            room->enemies = NULL;
+        }
+        else {
+            room->enemies = malloc(sizeof(room->enemies[0]) * room->enemies_allocated);
+        }
         fread(room->enemies, sizeof(room->enemies[0]), room->enemies_len, file);
     }
 
@@ -33,7 +38,7 @@ static bool World_read_V1(World* world, FILE* file) {
 void World_write_to_file(World* world, char name[WORLD_NAME_LEN]) {
     FILE* file;
 
-    file = fopen(TextFormat("resources/levels/%s.bin", name), "wb");
+    file = fopen(name, "wb");
 
     fwrite(&world->rooms_len, sizeof(world->rooms_len), 1, file);
     for(u32 i = 0; i < world->rooms_len; i++) {
@@ -53,7 +58,8 @@ void World_write_to_file(World* world, char name[WORLD_NAME_LEN]) {
 bool World_read_from_file(World* world, char name[WORLD_NAME_LEN]) {
     FILE* file;
 
-    file = fopen(TextFormat("resources/levels/%s.bin", name), "rb");
+    //TextFormat("resources/levels/%s.bin", name)
+    file = fopen(name, "rb");
 
     bool success = false;
 

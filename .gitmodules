@@ -1,15 +1,21 @@
-[submodule "deps/raylib"]
-	path = deps/raylib
-	url = git@github.com:raysan5/raylib.git
-[submodule "deps/box2c"]
-	path = deps/box2c
-	url = git@github.com:erincatto/box2c.git
-[submodule "deps/rlImGui"]
-	path = deps/rlImGui
-	url = git@github.com:raylib-extras/rlImGui.git
-[submodule "deps/cimgui"]
-	path = deps/cimgui
-	url = git@github.com:cimgui/cimgui.git
 [submodule "deps/json-c"]
 	path = deps/json-c
 	url = git@github.com:json-c/json-c.git
+[submodule "deps/SDL"]
+	path = deps/SDL
+	url = git@github.com:libsdl-org/SDL.git
+[submodule "deps/VulkanMemoryAllocator"]
+	path = deps/VulkanMemoryAllocator
+	url = git@github.com:GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "deps/cgltf"]
+	path = deps/cgltf
+	url = git@github.com:jkuhlmann/cgltf.git
+[submodule "deps/stb"]
+	path = deps/stb
+	url = git@github.com:nothings/stb.git
+[submodule "deps/cglm"]
+	path = deps/cglm
+	url = git@github.com:recp/cglm.git
+[submodule "deps/freetype"]
+	path = deps/freetype
+	url = https://gitlab.freedesktop.org/freetype/freetype.git

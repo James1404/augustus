@@ -1,0 +1,47 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "test_tileset.tsx",
+    "expandedProjectPaths": [
+        "."
+    ],
+    "fileStates": {
+        "temp_tile_set.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 2.3941
+        },
+        "test.tmx": {
+            "scale": 5.2106,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 366.0806816873297,
+                "y": 253.7135838483092
+            }
+        },
+        "test_tileset.tsx": {
+            "scaleInDock": 0.6524,
+            "scaleInEditor": 3.3098
+        }
+    },
+    "last.imagePath": "/home/james/Documents/projects/augustus/resources/tiled/Tiles/Assets",
+    "map.lastUsedFormat": "tmx",
+    "map.tileHeight": 16,
+    "map.tileWidth": 16,
+    "openFiles": [
+        "test.tmx",
+        "test_tileset.tsx"
+    ],
+    "project": "augustus.tiled-project",
+    "recentFiles": [
+        "test.tmx",
+        "test_tileset.tsx",
+        "temp_tile_set.tsx"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.tileSize": {
+        "height": 16,
+        "width": 16
+    }
+}

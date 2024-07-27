@@ -5,14 +5,16 @@
 #include "augustus_player.h"
 #include "augustus_enemies.h"
 
-#include <raylib.h>
+vec2s vec2s_tile(vec2s v);
 
-Vector2 Vector2_tile(Vector2 v);
-
+// always append of shit will get broken
 #define FOR_TILE_TYPES(DO)\
     DO(None)\
     DO(Solid)\
-    DO(Spike)
+    DO(Spike)\
+    DO(Water)\
+    DO(Lava)\
+    DO(Slope)\
 
 typedef enum {
 #define ENUM(x) TILE_##x,
@@ -50,6 +52,12 @@ void Room_add_enemy(Room* room, Enemy enemy);
 void Room_resize(Room* room, u64 w, u64 h);
 Tile* Room_at(Room* room, u64 x, u64 y);
 
+typedef struct {
+    vec2s pos, dir, size;
+    f32 speed;
+    bool from_player;
+} Bullet;
+
 #define WORLD_NAME_LEN 24
 
 typedef struct {
@@ -58,6 +66,9 @@ typedef struct {
 
     Player player;
     u64 current_room;
+
+    Bullet* bullets;
+    u32 bullets_len, bullets_allocated;
 } World;
 
 extern World world;
@@ -75,5 +86,7 @@ Room* World_get(World* world);
 
 void World_write_to_file(World* world, char name[WORLD_NAME_LEN]);
 bool World_read_from_file(World* world, char name[WORLD_NAME_LEN]);
+
+void World_spawn_bullet(World* world, Bullet bullet);
 
 #endif//AUGUSTUS_WORLD_H

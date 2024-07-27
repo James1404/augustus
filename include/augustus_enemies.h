@@ -2,10 +2,11 @@
 #define AUGUSTUS_ENEMIES_H
 
 #include "augustus_common.h"
-#include "raylib.h"
+#include "augustus_math.h"
 
 #define FOR_ENEMY_TYPES(DO)\
     DO(Bat)\
+    DO(Turret)\
 
 typedef enum {
 #define ENUM(x) ENEMY_##x,
@@ -14,7 +15,7 @@ typedef enum {
 } EnemyType;
 
 typedef struct {
-    Vector2 pos, size;
+    vec2s pos, size;
 
     u32 type;
 
@@ -23,7 +24,7 @@ typedef struct {
     bool alive;
 } Enemy;
 
-Enemy Enemy_make(u32 type, Vector2 pos);
+Enemy Enemy_make(u32 type, vec2s pos);
 void Enemy_free(Enemy* enemy);
 
 void Enemy_update(Enemy* enemy);

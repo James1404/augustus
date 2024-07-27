@@ -2,42 +2,18 @@
 #define AUGUSTUS_PHYSICS_H
 
 #include "augustus_common.h"
+#include "augustus_math.h"
 
-#include "box2d/id.h"
-#include "box2d/math_functions.h"
-#include "box2d/collision.h"
-#include "raylib.h"
+void SAT_projection(vec2s vertices[], u32 vertices_len, vec2s axis, f32* min, f32* max);
 
-extern b2WorldId physicsWorld;
+f32 Signed2DTriArea(vec2s a, vec2s b, vec2s c);
 
-void Physics_init(void);
-void Physics_free(void);
-void Physics_sim(void);
-void Physics_from_world(void);
+bool LineVsLine(vec2s a, vec2s b, vec2s c, vec2s d, f32* t, vec2s* p, vec2s* normal);
 
-typedef struct {
-    b2BodyId body;
-    f32 w, h;
-} Rigidbody;
+bool LineVsAABB(vec2s pos, vec2s size, vec2s l1, vec2s l2);
 
-Rigidbody Rigidbody_make(f32 w, f32 h);
-void Rigidbody_free(Rigidbody rb);
+vec2s ClosestPointToLine(vec2s a, vec2s b, vec2s point);
 
-void Rigidbody_draw(Rigidbody rb);
-
-b2Vec2 Rigidbody_pos(Rigidbody rb);
-f32 Rigidbody_rotation(Rigidbody rb);
-
-void SAT_projection(Vector2 vertices[], u32 vertices_len, Vector2 axis, f32* min, f32* max);
-
-f32 Signed2DTriArea(Vector2 a, Vector2 b, Vector2 c);
-
-bool LineVsLine(Vector2 a, Vector2 b, Vector2 c, Vector2 d, f32* t, Vector2* p, Vector2* normal);
-
-bool LineVsAABB(Vector2 pos, Vector2 size, Vector2 l1, Vector2 l2);
-
-Vector2 ClosestPointToLine(Vector2 a, Vector2 b, Vector2 point);
-
-bool AABBvsAABB(Vector2 min1, Vector2 max1, Vector2 min2, Vector2 max2);
+bool AABBvsAABB(vec2s min1, vec2s max1, vec2s min2, vec2s max2);
 
 #endif//AUGUSTUS_PHYSICS_H

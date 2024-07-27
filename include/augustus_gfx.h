@@ -3,6 +3,19 @@
 
 #include "augustus_common.h"
 #include "augustus_hash_functions.h"
+#include "augustus_math.h"
+
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+
+#include <vk_mem_alloc.h>
+
+#include <threads.h>
+
+void GFX_ClearColor(vec3s color);
+
+void GFX_BeginFrame(void);
+void GFX_EndFrame(void);
 
 typedef struct {
     i32 x, y, width, height;
@@ -45,9 +58,39 @@ AnimationMap AnimationMap_load(const char* filepath);
 
 typedef struct {
     AnimationMap animations;
+
+    // mesh data
+    VkDescriptorSetLayout descriptorSetLayout;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
+
+    vec3s* vertices;
+    vec2s* uvs;
+
+    u32 verticesLen;
+
+    u16* faces;
+    u32 facesLen;
+
+    VkBuffer vb, ib;
+    VmaAllocation vba, iba;
+
+    // texture data
+    i32 w, h, channels;
+    VkFormat format;
+    VkDeviceSize vkSize;
+
+    VkImage image;
+    VmaAllocation imageAllocation;
+
+    VkImageView imageView;
+    VkSampler sampler;
+
+    char* texture_filename;
 } Sprite;
 
-Sprite Sprite_make(void);
+Sprite Sprite_make(char* filename);
 void Sprite_free(Sprite* sprite);
+void Sprite_draw(Sprite* sprite, VkCommandBuffer commandBuffer);
 
 #endif//AUGUSTUS_GFX_H
