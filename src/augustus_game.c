@@ -86,7 +86,7 @@ i32 Augustus_main(void) {
         }
 
         GFX_BeginFrame();
-        GFX_ClearColor((vec3) { 0, 0, 0 });
+        GFX_ClearColor((vec3s) { 0, 0, 0 });
 
         //BeginMode2D(camera);
 

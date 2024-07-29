@@ -2,7 +2,6 @@
 
 #include "augustus_window.h"
 #include "augustus_world.h"
-#include "raymath.h"
 
 Enemy Enemy_make(u32 type, vec2s pos) {
     u32 health = 10;

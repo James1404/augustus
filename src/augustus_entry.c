@@ -8,8 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_vulkan.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_vulkan.h>
 
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
@@ -17,8 +17,6 @@
 #include <cglm/cglm.h>
 #include <cglm/struct.h>
 
-#include "json_tokener.h"
-#include <json.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -128,9 +126,13 @@ static bool checkValidationLayers(void) {
 }
 #endif//VULKAN_DEBUG
 
-static const char* const* getRequiredExtensions(u32* count) {
-    const char* const* sdlExtensions = SDL_Vulkan_GetInstanceExtensions(count);
+static const char** getRequiredExtensions(u32* count) {
+  const char** sdlExtensions = NULL;
+  SDL_Vulkan_GetInstanceExtensions(window, count, NULL);
 
+  sdlExtensions = malloc(sizeof(sdlExtensions) * *count);
+  SDL_Vulkan_GetInstanceExtensions(window, count, sdlExtensions);
+  
 #ifdef VULKAN_DEBUG
     (*count)++;
 
@@ -794,7 +796,7 @@ int main(void) {
     }
 
     SDL_Vulkan_LoadLibrary(NULL);
-    window = SDL_CreateWindow("Stoner", width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    window = SDL_CreateWindow("Stoner", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     if(!window) {
         SDL_Log("SDL_CreateWindow failed (%s)", SDL_GetError());
@@ -849,7 +851,7 @@ int main(void) {
 #endif//VULKAN_DEBUG
 
     if(vkCreateInstance(&createInfo, NULL, &instance) != VK_SUCCESS) {
-        SDL_Log("Failed to create Vulkan instance");
+        SDL_Log("Failed to create Vulkan instance! (%s)", SDL_GetError());
         SDL_Quit();
         return 1;
     }
@@ -863,15 +865,15 @@ int main(void) {
     }
 #endif//VULKAN_DEBUG
     
-    if(SDL_Vulkan_CreateSurface(window, instance, NULL, &surface) != 0) {
-        SDL_Log("failed to create Vulkan surface using SDL!");
+    if(!SDL_Vulkan_CreateSurface(window, instance, &surface)) {
+        SDL_Log("failed to create Vulkan surface using SDL! (%s)", SDL_GetError());
         SDL_Quit();
         return 1;
     }
 
     u32 deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, NULL);
-
+    
     if(deviceCount == 0) {
         SDL_Log("failed to find GPU's with Vulkan's support!");
         SDL_Quit();
@@ -1137,8 +1139,6 @@ int main(void) {
 
     vkDestroyDevice(device, NULL);
 
-    SDL_Vulkan_DestroySurface(instance, surface, NULL);
-
 #ifdef VULKAN_DEBUG
     DestroyDebugUtilsMessengerEXT(instance, debugMessenger, NULL);
 #endif//VULKAN_DEBUG
@@ -1159,14 +1159,14 @@ void GFX_BeginFrame(void) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch(event.type) {
-            case SDL_EVENT_QUIT:
+            case SDL_QUIT:
                 is_running = false;
                 break;
-            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+	    case SDL_WINDOWEVENT_SIZE_CHANGED:
                 framebufferResized = true;
                 break;
-            case SDL_EVENT_KEY_DOWN:
-                if(event.key.scancode == SDL_SCANCODE_ESCAPE) {
+	    case SDL_KEYDOWN:
+                if(event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
                     is_running = false;
                 }
                 break;
@@ -1410,6 +1410,7 @@ AnimationMap AnimationMap_load(const char* filepath) {
         printf("Failed to read file: \"%s\"", filepath);
     }
 
+#if 0
     if(buffer) {
         json_tokener* tok = json_tokener_new();
 
@@ -1432,7 +1433,7 @@ AnimationMap AnimationMap_load(const char* filepath) {
 
         json_tokener_free(tok);
     }
-
+#endif
     return map;
 }
 

@@ -10,17 +10,16 @@ DEPS_DIR = deps
 RESOURCES_DIR = resources
 
 INCLUDE = include\
-		  $(DEPS_DIR)/SDL/include\
 		  $(DEPS_DIR)/cglm/include\
 		  $(DEPS_DIR)/cgltf\
-		  $(DEPS_DIR)/VulkanMemoryAllocator\
+		  $(DEPS_DIR)/VulkanMemoryAllocator/include\
 		  $(DEPS_DIR)/stb\
 
 INCLUDE_DIRS := $(foreach dir,$(INCLUDE),-I$(dir))
 
 CCFLAGS = -Wall -pedantic -g -O2 -std=c99\
 		  $(INCLUDE_DIRS)\
-		  `pkg-config --cflags sdl3`\
+		  `pkg-config --cflags sdl2`\
 		  `pkg-config --cflags lua`\
 		  `pkg-config --cflags json-c`\
 		  `pkg-config --cflags freetype2`\
@@ -28,7 +27,7 @@ CCFLAGS = -Wall -pedantic -g -O2 -std=c99\
 CPPFLAGS = -Wall -pedantic -g -O2 -std=c++20 $(INCLUDE_DIRS)
 
 LDFLAGS = -Ldeps/cglm/build/ -lcglm -lvulkan\
-		  `pkg-config --libs sdl3`\
+		  `pkg-config --libs sdl2`\
 		  `pkg-config --libs lua`\
 		  `pkg-config --libs json-c`\
 		  `pkg-config --libs freetype2`\

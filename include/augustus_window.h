@@ -1,7 +1,7 @@
 #ifndef AUGUSTUS_WINDOW_H
 #define AUGUSTUS_WINDOW_H
 
-#include "SDL3/SDL_scancode.h"
+#include "SDL2/SDL_scancode.h"
 #include "augustus_common.h"
 #include "augustus_math.h"
 
