@@ -59,22 +59,6 @@ AnimationMap AnimationMap_load(const char* filepath);
 typedef struct {
     AnimationMap animations;
 
-    // mesh data
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline pipeline;
-
-    vec3s* vertices;
-    vec2s* uvs;
-
-    u32 verticesLen;
-
-    u16* faces;
-    u32 facesLen;
-
-    VkBuffer vb, ib;
-    VmaAllocation vba, iba;
-
     // texture data
     i32 w, h, channels;
     VkFormat format;
@@ -86,11 +70,14 @@ typedef struct {
     VkImageView imageView;
     VkSampler sampler;
 
+    vec3s pos;
+    vec2s size;
+
     char* texture_filename;
 } Sprite;
 
 Sprite Sprite_make(char* filename);
 void Sprite_free(Sprite* sprite);
-void Sprite_draw(Sprite* sprite, VkCommandBuffer commandBuffer);
+void Sprite_draw(Sprite* sprite);
 
 #endif//AUGUSTUS_GFX_H

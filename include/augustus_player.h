@@ -3,6 +3,7 @@
 
 #include "augustus_common.h"
 #include "augustus_math.h"
+#include "augustus_gfx.h"
 
 typedef enum {
     PLAYER_STANDING,
@@ -30,6 +31,8 @@ typedef struct {
 
     bool has_collision;
     bool is_grounded;
+
+    Sprite sprite;
 } Player;
 
 #define PLAYER_MIN(p) ((vec2s) { (p).pos.x, (p).pos.y - (p).size.y })

@@ -1,8 +1,9 @@
 #include "augustus_common.h"
-#include "augustus_math.h"
 #include "augustus_game.h"
 #include "augustus_window.h"
 #include "augustus_gfx.h"
+#include "cglm/struct/cam.h"
+#include "cglm/struct/mat4.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,17 +18,17 @@
 #include <cglm/cglm.h>
 #include <cglm/struct.h>
 
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #define VULKAN_DEBUG
 
 typedef struct {
-    mat4s view, projection;
+    mat4s model, view, projection;
 } UniformBufferObject;
 
-static SDL_Window* window = NULL;
+static SDL_Window *window = NULL;
+static u32 width = 800, height = 600;
 
 static bool is_running = true;
 
@@ -62,6 +63,7 @@ static VkCommandPool commandPool;
 static VkCommandBuffer* commandBuffers;
 
 static VkViewport viewport;
+
 static VkRect2D scissor;
 
 #define MAX_FRAMES_IN_FLIGHT 2
@@ -72,6 +74,11 @@ static VkFence* inFlightFences;
 static bool framebufferResized = false;
 
 static u32 currentFrame = 0;
+
+static u32 imageIndex = 0;
+VkCommandBuffer currentCommandBuffer(void) {
+    return commandBuffers[currentFrame];
+}
 
 #define validationLayerCount (sizeof(validationLayers) / sizeof(validationLayers[0]))
 static const char* validationLayers[] = {
@@ -787,7 +794,316 @@ void recreateSwapChains(void) {
     createFramebuffers();
 }
 
-static u32 width = 800, height = 600;
+typedef struct {
+    // mesh data
+    VkDescriptorSetLayout descriptorSetLayout;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
+
+    vec3s* vertices;
+    vec2s* uvs;
+
+    u32 verticesLen;
+
+    u16* faces;
+    u32 facesLen;
+
+    VkBuffer vb, ib;
+    VmaAllocation vba, iba;
+
+    VkBuffer* uniformBuffers;
+    VmaAllocation* uniformBuffersMem;
+    void** uniformBuffersMapped;
+} VkSprite;
+
+static VkSprite VkSprite_instance;
+static VkVertexInputBindingDescription VkSprite_getBindingDescription(void) {
+    VkVertexInputBindingDescription desc = {
+        .binding = 0,
+        .stride = 0, // TODO: sizeof(Vertex),
+        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+    };
+
+    return desc;
+}
+
+static VkVertexInputAttributeDescription* VkSprite_getAttributeDescription(u32* len) {
+    VkVertexInputAttributeDescription* desc = malloc(sizeof(*desc) * 2);
+
+    desc[0] = (VkVertexInputAttributeDescription) {
+        .binding = 0,
+        .location = 0,
+        .format = VK_FORMAT_R32G32B32_SFLOAT,
+        .offset = 0,
+    };
+
+    desc[1] = (VkVertexInputAttributeDescription) {
+        .binding = 0,
+        .location = 1,
+        .format = VK_FORMAT_R32G32B32_SFLOAT,
+        .offset = sizeof(VkSprite_instance.vertices) * VkSprite_instance.verticesLen,
+    };
+
+    return desc;
+}
+
+void VkSprite_free(void) {
+    for(u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vmaUnmapMemory(allocator, VkSprite_instance.uniformBuffersMem[i]);
+        
+        vmaDestroyBuffer(allocator, VkSprite_instance.uniformBuffers[i], VkSprite_instance.uniformBuffersMem[i]);
+    }
+    
+    free(VkSprite_instance.uniformBuffers);
+    free(VkSprite_instance.uniformBuffersMem);
+    free(VkSprite_instance.uniformBuffersMapped);
+    
+    vmaDestroyBuffer(allocator, VkSprite_instance.vb, VkSprite_instance.vba);
+    vmaDestroyBuffer(allocator, VkSprite_instance.ib, VkSprite_instance.iba);
+}
+
+void VkSprite_init(void) {
+    u32 vertCodeLen;
+    char* vertCode = loadShaderCode("resources/shaders/spriv/sprite.vert.spv", &vertCodeLen);
+
+    u32 fragCodeLen;
+    char* fragCode = loadShaderCode("resources/shaders/spriv/sprite.frag.spv", &fragCodeLen);
+
+    VkShaderModule vertModule = createShaderModule(vertCode, vertCodeLen);
+    VkShaderModule fragModule = createShaderModule(fragCode, fragCodeLen);
+
+    VkPipelineShaderStageCreateInfo vertShaderStateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = vertModule,
+        .pName = "main",
+    };
+
+    VkPipelineShaderStageCreateInfo fragShaderStateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = fragModule,
+        .pName = "main",
+    };
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStateInfo, fragShaderStateInfo };
+
+    VkVertexInputBindingDescription bindingDesc = VkSprite_getBindingDescription();
+    u32 attributeDescLen = 0;
+    VkVertexInputAttributeDescription* attributeDesc = VkSprite_getAttributeDescription(&attributeDescLen);
+
+    VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &bindingDesc,
+        .vertexAttributeDescriptionCount = attributeDescLen,
+        .pVertexAttributeDescriptions = attributeDesc,
+    };
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+    };
+
+    VkDynamicState dynamicStates[] = {
+        VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_VIEWPORT
+    };
+    u32 dynamicStatesLen = sizeof(dynamicStates) / sizeof(dynamicStates[0]);
+
+    VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = dynamicStatesLen,
+        .pDynamicStates = dynamicStates,
+    };
+
+    viewport = (VkViewport) {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = (f32)swapChainExtent.width,
+        .height = (f32)swapChainExtent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+
+    scissor = (VkRect2D) {
+        .offset = { 0, 0 },
+        .extent = swapChainExtent,
+    };
+
+    VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor,
+    };
+
+    VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+
+        .depthBiasEnable = VK_FALSE,
+        .depthBiasConstantFactor = 0.0f,
+        .depthBiasClamp = 0.0f,
+        .depthBiasSlopeFactor = 0.0f,
+
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .lineWidth = 1.0f,
+        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+    };
+
+    VkPipelineMultisampleStateCreateInfo multisampleCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .sampleShadingEnable = VK_FALSE,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+
+        .depthCompareOp = VK_COMPARE_OP_LESS,
+
+        .depthBoundsTestEnable = VK_FALSE,
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
+
+        .stencilTestEnable = VK_FALSE,
+    };
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+        .blendEnable = VK_FALSE,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+    };
+
+    VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment
+    };
+
+    VkDescriptorSetLayoutBinding uboLayoutBinding = {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .pImmutableSamplers = NULL,
+    };
+
+    VkDescriptorSetLayoutBinding setLayoutBinding = {
+        .binding = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = NULL,
+    };
+
+    VkDescriptorSetLayoutBinding bindings[] = {
+        uboLayoutBinding,
+        setLayoutBinding
+    };
+    u32 bindingsLen = sizeof(bindings) / sizeof(bindings[0]);
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = bindingsLen,
+        .pBindings = bindings,
+    };
+
+    if(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, NULL, &VkSprite_instance.descriptorSetLayout) != VK_SUCCESS) {
+        SDL_Log("Failed to create descriptor set layout");
+        SDL_Quit();
+    }
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &VkSprite_instance.descriptorSetLayout,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = NULL,
+    };
+
+    if(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, &VkSprite_instance.pipelineLayout) != VK_SUCCESS) {
+        SDL_Log("Failed to create pipeline layout");
+        SDL_Quit();
+    }
+
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = 2,
+        .pStages = shaderStages,
+
+        .pVertexInputState = &vertexInputCreateInfo,
+        .pInputAssemblyState = &inputAssemblyCreateInfo,
+        .pViewportState = &viewportStateCreateInfo,
+        .pRasterizationState = &rasterizerCreateInfo,
+        .pMultisampleState = &multisampleCreateInfo,
+        .pDepthStencilState = &depthStencilCreateInfo,
+        .pColorBlendState = &colorBlendCreateInfo,
+        .pDynamicState = &dynamicStateCreateInfo,
+
+        .layout = VkSprite_instance.pipelineLayout,
+
+        .renderPass = renderPass,
+        .subpass = 0,
+
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = -1,
+    };
+
+    if(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, NULL, &VkSprite_instance.pipeline) != VK_SUCCESS) {
+        SDL_Log("Failed to create graphics pipeline");
+        SDL_Quit();
+    }
+
+    vkDestroyShaderModule(device, vertModule, NULL);
+    free(vertCode);
+    vkDestroyShaderModule(device, fragModule, NULL);
+    free(fragCode);
+
+    VkSprite_instance.uniformBuffers = malloc(sizeof(*VkSprite_instance.uniformBuffers) * MAX_FRAMES_IN_FLIGHT);
+    VkSprite_instance.uniformBuffersMem = malloc(sizeof(*VkSprite_instance.uniformBuffersMem) * MAX_FRAMES_IN_FLIGHT);
+    VkSprite_instance.uniformBuffersMapped = malloc(sizeof(*VkSprite_instance.uniformBuffersMapped) * MAX_FRAMES_IN_FLIGHT);
+
+    VkDeviceSize uboSize = sizeof(UniformBufferObject);
+    for(u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        createBuffer(uboSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VkSprite_instance.uniformBuffers + i, VkSprite_instance.uniformBuffersMem + i);
+        vmaMapMemory(allocator, VkSprite_instance.uniformBuffersMem[i], VkSprite_instance.uniformBuffersMapped + i);
+    }
+}
+
+void VkSprite_draw(void) {
+    UniformBufferObject ubo = { 0 };
+
+    ubo.model = glms_mat4_zero();
+    ubo.projection = glms_ortho(0, width, 0, height, 0.01f, 10000.0f);
+    ubo.view = glms_mat4_identity();
+
+    memcpy(VkSprite_instance.uniformBuffersMapped[currentFrame], &ubo, sizeof(ubo));
+
+    VkBuffer vertexBuffers[] = { VkSprite_instance.vb };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(currentCommandBuffer(), 0, 1, vertexBuffers, offsets);
+
+    vkCmdBindIndexBuffer(currentCommandBuffer(), VkSprite_instance.ib, 0, VK_INDEX_TYPE_UINT16);
+
+    vkCmdDrawIndexed(currentCommandBuffer(), VkSprite_instance.facesLen, 1, 0, 0, 0);
+}
 
 int main(void) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -1154,7 +1470,6 @@ int main(void) {
 void GFX_ClearColor(vec3s color) {
 }
 
-static u32 imageIndex = 0;
 void GFX_BeginFrame(void) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -1437,258 +1752,15 @@ AnimationMap AnimationMap_load(const char* filepath) {
     return map;
 }
 
-static VkVertexInputBindingDescription Sprite_getBindingDescription(void) {
-    VkVertexInputBindingDescription desc = {
-        .binding = 0,
-        .stride = 0, // TODO: sizeof(Vertex),
-        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-    };
-
-    return desc;
-}
-
-static VkVertexInputAttributeDescription* Sprite_getAttributeDescription(Sprite* sprite, u32* len) {
-    VkVertexInputAttributeDescription* desc = malloc(sizeof(*desc) * 2);
-
-    desc[0] = (VkVertexInputAttributeDescription) {
-        .binding = 0,
-        .location = 0,
-        .format = VK_FORMAT_R32G32B32_SFLOAT,
-        .offset = 0,
-    };
-
-    desc[1] = (VkVertexInputAttributeDescription) {
-        .binding = 0,
-        .location = 1,
-        .format = VK_FORMAT_R32G32B32_SFLOAT,
-        .offset = sizeof(*sprite->vertices) * sprite->verticesLen,
-    };
-
-    return desc;
-}
-
 Sprite Sprite_make(char* filename) {
     Sprite result = {
         .animations = AnimationMap_make(),
         0
     };
 
-    u32 vertCodeLen;
-    char* vertCode = loadShaderCode("resources/shaders/spriv/sprite.vert.spv", &vertCodeLen);
-
-    u32 fragCodeLen;
-    char* fragCode = loadShaderCode("resources/shaders/spriv/sprite.frag.spv", &fragCodeLen);
-
-    VkShaderModule vertModule = createShaderModule(vertCode, vertCodeLen);
-    VkShaderModule fragModule = createShaderModule(fragCode, fragCodeLen);
-
-    VkPipelineShaderStageCreateInfo vertShaderStateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = vertModule,
-        .pName = "main",
-    };
-
-    VkPipelineShaderStageCreateInfo fragShaderStateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = fragModule,
-        .pName = "main",
-    };
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStateInfo, fragShaderStateInfo };
-
-    VkVertexInputBindingDescription bindingDesc = Sprite_getBindingDescription();
-    u32 attributeDescLen = 0;
-    VkVertexInputAttributeDescription* attributeDesc = Sprite_getAttributeDescription(&result, &attributeDescLen);
-
-    VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &bindingDesc,
-        .vertexAttributeDescriptionCount = attributeDescLen,
-        .pVertexAttributeDescriptions = attributeDesc,
-    };
-
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        .primitiveRestartEnable = VK_FALSE,
-    };
-
-    VkDynamicState dynamicStates[] = {
-        VK_DYNAMIC_STATE_SCISSOR,
-        VK_DYNAMIC_STATE_VIEWPORT
-    };
-    u32 dynamicStatesLen = sizeof(dynamicStates) / sizeof(dynamicStates[0]);
-
-    VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-        .dynamicStateCount = dynamicStatesLen,
-        .pDynamicStates = dynamicStates,
-    };
-
-    viewport = (VkViewport) {
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = (f32)swapChainExtent.width,
-        .height = (f32)swapChainExtent.height,
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
-    };
-
-    scissor = (VkRect2D) {
-        .offset = { 0, 0 },
-        .extent = swapChainExtent,
-    };
-
-    VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        .viewportCount = 1,
-        .pViewports = &viewport,
-        .scissorCount = 1,
-        .pScissors = &scissor,
-    };
-
-    VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-
-        .depthBiasEnable = VK_FALSE,
-        .depthBiasConstantFactor = 0.0f,
-        .depthBiasClamp = 0.0f,
-        .depthBiasSlopeFactor = 0.0f,
-
-        .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode = VK_POLYGON_MODE_FILL,
-        .lineWidth = 1.0f,
-        .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_CLOCKWISE,
-    };
-
-    VkPipelineMultisampleStateCreateInfo multisampleCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .sampleShadingEnable = VK_FALSE,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-    };
-
-    VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
-
-        .depthCompareOp = VK_COMPARE_OP_LESS,
-
-        .depthBoundsTestEnable = VK_FALSE,
-        .minDepthBounds = 0.0f,
-        .maxDepthBounds = 1.0f,
-
-        .stencilTestEnable = VK_FALSE,
-    };
-
-    VkPipelineColorBlendAttachmentState colorBlendAttachment = {
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-        .blendEnable = VK_FALSE,
-        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
-        .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
-        .colorBlendOp = VK_BLEND_OP_ADD,
-        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-        .alphaBlendOp = VK_BLEND_OP_ADD,
-    };
-
-    VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        .logicOpEnable = VK_FALSE,
-        .logicOp = VK_LOGIC_OP_COPY,
-        .attachmentCount = 1,
-        .pAttachments = &colorBlendAttachment
-    };
-
-    VkDescriptorSetLayoutBinding uboLayoutBinding = {
-        .binding = 0,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1,
-
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .pImmutableSamplers = NULL,
-    };
-
-    VkDescriptorSetLayoutBinding setLayoutBinding = {
-        .binding = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .descriptorCount = 1,
-
-        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .pImmutableSamplers = NULL,
-    };
-
-    VkDescriptorSetLayoutBinding bindings[] = {
-        uboLayoutBinding,
-        setLayoutBinding
-    };
-    u32 bindingsLen = sizeof(bindings) / sizeof(bindings[0]);
-
-    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = bindingsLen,
-        .pBindings = bindings,
-    };
-
-    if(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, NULL, &result.descriptorSetLayout) != VK_SUCCESS) {
-        SDL_Log("Failed to create descriptor set layout");
-        SDL_Quit();
-    }
-
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 1,
-        .pSetLayouts = &result.descriptorSetLayout,
-        .pushConstantRangeCount = 0,
-        .pPushConstantRanges = NULL,
-    };
-
-    if(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, &result.pipelineLayout) != VK_SUCCESS) {
-        SDL_Log("Failed to create pipeline layout");
-        SDL_Quit();
-    }
-
-    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount = 2,
-        .pStages = shaderStages,
-
-        .pVertexInputState = &vertexInputCreateInfo,
-        .pInputAssemblyState = &inputAssemblyCreateInfo,
-        .pViewportState = &viewportStateCreateInfo,
-        .pRasterizationState = &rasterizerCreateInfo,
-        .pMultisampleState = &multisampleCreateInfo,
-        .pDepthStencilState = &depthStencilCreateInfo,
-        .pColorBlendState = &colorBlendCreateInfo,
-        .pDynamicState = &dynamicStateCreateInfo,
-
-        .layout = result.pipelineLayout,
-
-        .renderPass = renderPass,
-        .subpass = 0,
-
-        .basePipelineHandle = VK_NULL_HANDLE,
-        .basePipelineIndex = -1,
-    };
-
-    if(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, NULL, &result.pipeline) != VK_SUCCESS) {
-        SDL_Log("Failed to create graphics pipeline");
-        SDL_Quit();
-    }
-
-    vkDestroyShaderModule(device, vertModule, NULL);
-    free(vertCode);
-    vkDestroyShaderModule(device, fragModule, NULL);
-    free(fragCode);
-
-    result.texture_filename = filename;
+        result.texture_filename = filename;
     //stbi_set_flip_vertically_on_load(true);
-    u8* pixels = stbi_load(result.texture_filename, &result.w, &result.h, &result.channels, NULL);
+        u8* pixels = stbi_load(result.texture_filename, &result.w, &result.h, &result.channels, 0);
 
     result.vkSize = result.w * result.h * result.channels; 
 
@@ -1761,6 +1833,7 @@ Sprite Sprite_make(char* filename) {
         SDL_Quit();
     }
 
+    return result;
 }
 
 void Sprite_free(Sprite* sprite) {
@@ -1770,18 +1843,8 @@ void Sprite_free(Sprite* sprite) {
     vkDestroyImageView(device, sprite->imageView, NULL);
 
     vmaDestroyImage(allocator, sprite->image, sprite->imageAllocation);
-
-
-    vmaDestroyBuffer(allocator, sprite->vb, sprite->vba);
-    vmaDestroyBuffer(allocator, sprite->ib, sprite->iba);
 }
 
-void Sprite_draw(Sprite* sprite, VkCommandBuffer commandBuffer) {
-    VkBuffer vertexBuffers[] = { sprite->vb };
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-
-    vkCmdBindIndexBuffer(commandBuffer, sprite->ib, 0, VK_INDEX_TYPE_UINT16);
-
-    vkCmdDrawIndexed(commandBuffer, sprite->facesLen, 1, 0, 0, 0);
+void Sprite_draw(Sprite* sprite) {
+    VkSprite_draw();
 }

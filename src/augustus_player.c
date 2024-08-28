@@ -1,4 +1,5 @@
 #include "augustus_player.h"
+#include "augustus_gfx.h"
 #include "augustus_window.h"
 #include "augustus_world.h"
 #include "augustus_physics.h"
@@ -41,10 +42,12 @@ Player Player_make(void) {
         .has_collision = false,
         .is_grounded = false,
 
+        .sprite = Sprite_make("resources/textures/test.jpg")
     };
 }
 
 void Player_free(Player* player) {
+    Sprite_free(&player->sprite);
 }
 
 static bool Player_collision(Player* player, vec2s* min, vec2s* max, TileType* type) {
@@ -265,9 +268,12 @@ void Player_update(Player* player) {
 }
 
 void Player_draw(Player* player) {
-    vec2s p = (vec2s) {
+    player->sprite.pos = (vec3s) {{
         player->pos.x,
-        player->pos.y - player->size.y
-    };
-    // todo
+        player->pos.y - player->size.y,
+        0.0f
+    }};
+    player->sprite.size = player->size;
+    
+    Sprite_draw(&player->sprite);
 }

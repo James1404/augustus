@@ -59,14 +59,18 @@ $(CACHE_DIR): | $(BUILD_DIR)
 	@mkdir -p $@
 
 $(BUILD_DIR)/$(RESOURCES_DIR): | $(RESOURCES_DIR) $(BUILD_DIR)
+	@echo Creating Symbolic Link: $(RESOURCES_DIR) to $(BUILD_DIR)/ output folder
 	@ln -sf $(realpath $(RESOURCES_DIR)) $(abspath $(BUILD_DIR))
 
 shaders:
 	@(cd resources/shaders && make)
 
 clean:
+	@echo Deleting: $(BUILD_DIR)/
 	@unlink $(BUILD_DIR)/$(RESOURCES_DIR)
 	@rm -rf $(BUILD_DIR)/
+
+	@echo Deleting: compiled shaders
 	@(cd resources/shaders && make clean)
 
 .PHONY: shaders clean run
